@@ -14,6 +14,7 @@ import {
 const navItems = [
   { section: "Main", items: [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/dashboard/manual", label: "User Manual", icon: HelpCircle },
   ]},
   { section: "Academics", items: [
     { href: "/dashboard/admissions", label: "Admissions", icon: FileText },
