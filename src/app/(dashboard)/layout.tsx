@@ -66,7 +66,40 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (!session) return null
 
-  const role = (session.user as any)?.role
+  const sessionUser = session.user as any
+  const role = sessionUser?.role
+  const isAdmin = role === "ADMIN"
+  const permissions = sessionUser?.permissions || []
+
+  function hasReadAccess(href: string): boolean {
+    if (isAdmin) return true
+    const moduleMap: Record<string, string> = {
+      "/dashboard": "dashboard",
+      "/dashboard/manual": "manual",
+      "/dashboard/admissions": "admission",
+      "/dashboard/students": "student",
+      "/dashboard/curriculum": "curriculum",
+      "/dashboard/timetable": "timetable",
+      "/dashboard/exams": "examination",
+      "/dashboard/attendance": "attendance",
+      "/dashboard/faculty": "faculty",
+      "/dashboard/fees": "fee",
+      "/dashboard/accounts": "account",
+      "/dashboard/library": "library",
+      "/dashboard/hostel": "hostel",
+      "/dashboard/transport": "transport",
+      "/dashboard/hr": "hr",
+      "/dashboard/communication": "communication",
+      "/dashboard/reports": "report",
+      "/dashboard/alumni": "alumni",
+      "/dashboard/portals": "portal",
+      "/dashboard/users": "settings",
+      "/dashboard/roles": "settings",
+    }
+    const moduleKey = moduleMap[href]
+    if (!moduleKey) return true
+    return permissions.some((p: any) => p.permission?.module === moduleKey && p.canRead === true)
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -98,31 +131,35 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
         <nav className="flex-1 overflow-y-auto p-2 space-y-1" style={{ height: "calc(100vh - 64px)" }}>
-          {navItems.map((group) => (
-            <div key={group.section}>
-              {!collapsed && (
-                <p className="px-3 pt-4 pb-1 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  {group.section}
-                </p>
-              )}
-              {group.items.map((item) => {
-                const Icon = item.icon
-                const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`sidebar-link ${isActive ? "active" : ""}`}
-                    title={collapsed ? item.label : undefined}
-                    onClick={() => setMobileOpen(false)}
-                  >
-                    <Icon size={18} />
-                    {!collapsed && <span>{item.label}</span>}
-                  </Link>
-                )
-              })}
-            </div>
-          ))}
+          {navItems.map((group) => {
+            const visibleItems = group.items.filter(i => hasReadAccess(i.href))
+            if (visibleItems.length === 0) return null
+            return (
+              <div key={group.section}>
+                {!collapsed && (
+                  <p className="px-3 pt-4 pb-1 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    {group.section}
+                  </p>
+                )}
+                {visibleItems.map((item) => {
+                  const Icon = item.icon
+                  const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`sidebar-link ${isActive ? "active" : ""}`}
+                      title={collapsed ? item.label : undefined}
+                      onClick={() => setMobileOpen(false)}
+                    >
+                      <Icon size={18} />
+                      {!collapsed && <span>{item.label}</span>}
+                    </Link>
+                  )
+                })}
+              </div>
+            )
+          })}
         </nav>
       </aside>
 

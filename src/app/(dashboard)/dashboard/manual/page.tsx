@@ -320,12 +320,7 @@ export default function ManualPage() {
           <Shield size={20} className="text-blue-600" /> Getting Started
         </h2>
         <div className="space-y-3 text-gray-600 text-sm leading-relaxed">
-          <p><strong>1. Login:</strong> Use your credentials at the login page. Demo accounts:
-            <br />Admin: <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">admin@college.edu</code> / <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">admin123</code>
-            <br />Faculty: <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">faculty@college.edu</code> / <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">faculty123</code>
-            <br />Student: <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">student@college.edu</code> / <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">student123</code>
-            <br />Parent: <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">parent@college.edu</code> / <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">parent123</code>
-          </p>
+          <p><strong>1. Login:</strong> Use your credentials at the login page. If you don&apos;t have credentials, contact your system administrator.</p>
           <p><strong>2. Dashboard:</strong> After login, you&apos;ll see the dashboard with key statistics and quick links. The sidebar on the left shows all modules you have access to.</p>
           <p><strong>3. Navigation:</strong> Use the sidebar menu to navigate between modules. Each module has its own set of features organized in tabs or views.</p>
           <p><strong>4. Role-Based Access:</strong> What you see depends on your role. Admin has full access. Faculty can view and edit academics. Students and Parents have read-only access to their relevant sections.</p>

@@ -27,6 +27,7 @@ model User {
   notifications       Notification[]
   receivedMessages    Message[]         @relation("receivedMessages")
   sentMessages        Message[]         @relation("sentMessages")
+  userPermissions     UserPermission[]
 }
 
 model Role {
@@ -993,6 +994,20 @@ model Parent {
 }
 
 // ====================== MODULE 16: SETTINGS & AUDIT ======================
+model UserPermission {
+  id           String @id @default(cuid())
+  userId       String
+  module       String
+  canCreate    Boolean @default(false)
+  canRead      Boolean @default(false)
+  canUpdate    Boolean @default(false)
+  canDelete    Boolean @default(false)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, module])
+}
+
 model AuditLog {
   id        String   @id @default(cuid())
   userId    String

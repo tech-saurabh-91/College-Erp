@@ -27,13 +27,65 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async jwt({ token, user }) {
-      if (user) { token.role = (user as any).role; token.id = user.id }
+      if (user) {
+        token.role = (user as any).role
+        token.id = user.id
+
+        const [assignments, userPerms] = await Promise.all([
+          prisma.roleAssignment.findMany({
+            where: { userId: user.id },
+            include: { role: { include: { permissions: { include: { permission: true } } } } },
+          }),
+          prisma.userPermission.findMany({ where: { userId: user.id } }),
+        ])
+        const perms: any[] = []
+        for (const a of assignments) {
+          for (const rp of a.role.permissions) {
+            const existing = perms.find(p => p.permissionId === rp.permissionId)
+            if (existing) {
+              existing.canCreate = existing.canCreate || rp.canCreate
+              existing.canRead = existing.canRead || rp.canRead
+              existing.canUpdate = existing.canUpdate || rp.canUpdate
+              existing.canDelete = existing.canDelete || rp.canDelete
+            } else {
+              perms.push({
+                permissionId: rp.permissionId,
+                permission: rp.permission,
+                canCreate: rp.canCreate,
+                canRead: rp.canRead,
+                canUpdate: rp.canUpdate,
+                canDelete: rp.canDelete,
+              })
+            }
+          }
+        }
+        for (const up of userPerms) {
+          const existing = perms.find(p => p.permission?.module === up.module)
+          if (existing) {
+            existing.canCreate = up.canCreate
+            existing.canRead = up.canRead
+            existing.canUpdate = up.canUpdate
+            existing.canDelete = up.canDelete
+          } else {
+            perms.push({
+              permissionId: up.module,
+              permission: { module: up.module },
+              canCreate: up.canCreate,
+              canRead: up.canRead,
+              canUpdate: up.canUpdate,
+              canDelete: up.canDelete,
+            })
+          }
+        }
+        token.permissions = perms
+      }
       return token
     },
     async session({ session, token }) {
       if (session.user) {
         (session.user as any).role = token.role
         ;(session.user as any).id = token.id
+        ;(session.user as any).permissions = token.permissions
       }
       return session
     },
