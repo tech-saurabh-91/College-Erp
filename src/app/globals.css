@@ -1,26 +1,65 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --primary: #1e40af;
+  --primary-light: #3b82f6;
+  --sidebar: #1e293b;
+  --sidebar-hover: #334155;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: #f1f5f9;
 }
+
+.sidebar-link {
+  @apply flex items-center gap-3 px-4 py-2.5 text-sm text-gray-300 rounded-lg transition-all hover:bg-slate-700 hover:text-white;
+}
+.sidebar-link.active {
+  @apply bg-blue-600 text-white;
+}
+
+.card {
+  @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6;
+}
+
+.btn-primary {
+  @apply bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium;
+}
+
+.btn-secondary {
+  @apply bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium;
+}
+
+.input-field {
+  @apply w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all;
+}
+
+.table-header {
+  @apply px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50;
+}
+
+.table-cell {
+  @apply px-4 py-3 text-sm text-gray-700 border-t border-gray-100;
+}
+
+.stat-card {
+  @apply bg-white rounded-xl shadow-sm border border-gray-100 p-5;
+}
+
+.stat-value {
+  @apply text-2xl font-bold text-gray-900 mt-2;
+}
+
+.stat-label {
+  @apply text-sm text-gray-500;
+}
+
+.badge {
+  @apply px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+.badge-success { @apply bg-green-100 text-green-800; }
+.badge-warning { @apply bg-yellow-100 text-yellow-800; }
+.badge-danger { @apply bg-red-100 text-red-800; }
+.badge-info { @apply bg-blue-100 text-blue-800; }
+.badge-default { @apply bg-gray-100 text-gray-800; }

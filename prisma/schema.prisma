@@ -1,0 +1,1010 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  password      String
+  name          String
+  role          String   @default("STUDENT")
+  phone         String?
+  image         String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  student             Student?
+  faculty             Faculty?
+  parent              Parent?
+  alumni              Alumni?
+  roleAssignments     RoleAssignment[]
+  notifications       Notification[]
+  receivedMessages    Message[]         @relation("receivedMessages")
+  sentMessages        Message[]         @relation("sentMessages")
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  permissions RolePermission[]
+  assignments RoleAssignment[]
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  description String?
+  module      String
+  createdAt   DateTime @default(now())
+
+  roles RolePermission[]
+}
+
+model RolePermission {
+  id           String @id @default(cuid())
+  roleId       String
+  permissionId String
+  canCreate    Boolean @default(false)
+  canRead      Boolean @default(false)
+  canUpdate    Boolean @default(false)
+  canDelete    Boolean @default(false)
+
+  role       Role       @relation(fields: [roleId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@unique([roleId, permissionId])
+}
+
+model RoleAssignment {
+  id     String @id @default(cuid())
+  userId String
+  roleId String
+
+  user User @relation(fields: [userId], references: [id])
+  role Role @relation(fields: [roleId], references: [id])
+
+  @@unique([userId, roleId])
+}
+
+// ====================== MODULE 1: ADMISSIONS ======================
+model Enquiry {
+  id             String   @id @default(cuid())
+  name           String
+  email          String
+  phone          String
+  courseInterest String
+  message        String?
+  status         String   @default("NEW")
+  source         String   @default("WEBSITE")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Application {
+  id            String   @id @default(cuid())
+  applicationNo String   @unique
+  firstName     String
+  lastName      String
+  dateOfBirth   DateTime
+  email         String
+  phone         String
+  address       String
+  city          String
+  state         String
+  pincode       String
+  gender        String
+  nationality   String
+  category      String
+  fatherName    String
+  motherName    String
+  guardianPhone String
+  programId     String
+  academicYear  String
+  percentage10  Float?
+  percentage12  Float?
+  graduationPct Float?
+  status        String   @default("PENDING")
+  meritScore    Float?
+  meritRank     Int?
+  remarks       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  program         Program           @relation(fields: [programId], references: [id])
+  documents       Document[]
+  meritListEntry  MeritListEntry?
+  seatAllotment   SeatAllotment?
+}
+
+model Document {
+  id            String   @id @default(cuid())
+  applicationId String
+  type          String
+  fileName      String
+  fileUrl       String
+  uploadedAt    DateTime @default(now())
+
+  application Application @relation(fields: [applicationId], references: [id])
+}
+
+model MeritList {
+  id            String   @id @default(cuid())
+  programId     String
+  academicYear  String
+  name          String
+  minScore      Float?
+  maxScore      Float?
+  publishedDate DateTime @default(now())
+  isPublished   Boolean  @default(false)
+
+  program Program          @relation(fields: [programId], references: [id])
+  entries MeritListEntry[]
+}
+
+model MeritListEntry {
+  id            String @id @default(cuid())
+  meritListId   String
+  applicationId String @unique
+  rank          Int
+  score         Float
+  status        String @default("ALLOTTED")
+
+  meritList   MeritList   @relation(fields: [meritListId], references: [id])
+  application Application @relation(fields: [applicationId], references: [id])
+}
+
+model SeatAllotment {
+  id            String   @id @default(cuid())
+  applicationId String   @unique
+  programId     String
+  allotmentDate DateTime @default(now())
+  status        String   @default("ALLOTTED")
+  feePaid       Boolean  @default(false)
+  lastDate      DateTime
+
+  application Application @relation(fields: [applicationId], references: [id])
+  program     Program     @relation(fields: [programId], references: [id])
+}
+
+// ====================== MODULE 2: STUDENT INFORMATION SYSTEM ======================
+model Student {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  rollNo           String   @unique
+  admissionNo      String   @unique
+  firstName        String
+  lastName         String
+  dateOfBirth      DateTime
+  gender           String
+  bloodGroup       String?
+  email            String
+  phone            String
+  address          String
+  city             String
+  state            String
+  pincode          String
+  nationality      String
+  category         String
+  religion         String?
+  photoUrl         String?
+  aadharNo         String?
+  fatherName       String
+  fatherPhone      String
+  fatherOccupation String?
+  motherName       String
+  motherPhone      String
+  motherOccupation String?
+  guardianName     String?
+  guardianPhone    String?
+  guardianAddress  String?
+  programId        String
+  currentSemester  Int      @default(1)
+  batchYear        String
+  status           String   @default("ACTIVE")
+  enrollmentDate   DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user              User                 @relation(fields: [userId], references: [id])
+  program           Program              @relation(fields: [programId], references: [id])
+  classSectionId    String?
+  classSection      ClassSection?        @relation(fields: [classSectionId], references: [id])
+  attendance        Attendance[]
+  marks             Mark[]
+  feeAccounts       FeeAccount[]
+  libraryIssues     BookIssue[]
+  hostelAllocation  HostelAllocation?
+  transportPass     TransportPass?
+  academicHistory   AcademicHistory[]
+  studentDocs       StudentDocument[]
+  transferCerts     TransferCertificate[]
+  hallTickets       HallTicket[]
+  results           Result[]
+  visitors          Visitor[]
+}
+
+model AcademicHistory {
+  id             String   @id @default(cuid())
+  studentId      String
+  institution    String
+  degree         String
+  year           String
+  percentage     Float
+  grade          String?
+  certificateUrl String?
+
+  student Student @relation(fields: [studentId], references: [id])
+}
+
+model StudentDocument {
+  id         String   @id @default(cuid())
+  studentId  String
+  type       String
+  fileName   String
+  fileUrl    String
+  uploadedAt DateTime @default(now())
+
+  student Student @relation(fields: [studentId], references: [id])
+}
+
+model ClassSection {
+  id             String   @id @default(cuid())
+  name           String
+  programId      String
+  semester       Int
+  section        String   @default("A")
+  academicYear   String
+  classTeacherId String?
+  roomNo         String?
+  capacity       Int
+  createdAt      DateTime @default(now())
+
+  program      Program      @relation(fields: [programId], references: [id])
+  classTeacher Faculty?     @relation(fields: [classTeacherId], references: [id])
+  students     Student[]
+  timetables   Timetable[]
+  attendance   Attendance[]
+}
+
+model TransferCertificate {
+  id            String   @id @default(cuid())
+  studentId     String
+  tcNo          String   @unique
+  issueDate     DateTime @default(now())
+  reason        String
+  conduct       String
+  dateOfLeaving DateTime
+  classStudied  String
+  createdAt     DateTime @default(now())
+
+  student Student @relation(fields: [studentId], references: [id])
+}
+
+// ====================== MODULE 3: CURRICULUM & TIMETABLE ======================
+model Program {
+  id             String   @id @default(cuid())
+  code           String   @unique
+  name           String
+  duration       Int
+  degreeType     String
+  department     String
+  description    String?
+  totalSemesters Int
+  totalCredits   Int?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  courses        Course[]
+  applications   Application[]
+  meritLists     MeritList[]
+  seatAllotments SeatAllotment[]
+  students       Student[]
+  classSections  ClassSection[]
+  feeStructures  FeeStructure[]
+  examSchedules  ExamSchedule[]
+}
+
+model Course {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  programId   String
+  semester    Int
+  credits     Int
+  isElective  Boolean  @default(false)
+  description String?
+  syllabus    String?
+  maxMarks    Int      @default(100)
+  passMarks   Int      @default(40)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  program         Program          @relation(fields: [programId], references: [id])
+  subjects        Subject[]
+  timetables      Timetable[]
+  marks           Mark[]
+  facultySubjects FacultySubject[]
+  exams           Exam[]
+}
+
+model Subject {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  courseId  String
+  credits   Int
+  type      String   @default("THEORY")
+  maxMarks  Int      @default(100)
+  passMarks Int      @default(40)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  course          Course           @relation(fields: [courseId], references: [id])
+  timetables      Timetable[]
+  marks           Mark[]
+  facultySubjects FacultySubject[]
+  exams           Exam[]
+  attendance      Attendance[]
+}
+
+model Timetable {
+  id              String @id @default(cuid())
+  classSectionId  String
+  subjectId       String
+  courseId        String
+  facultyId       String
+  dayOfWeek       Int
+  startTime       String
+  endTime         String
+  roomNo          String
+  academicYear    String
+  semester        Int
+  isActive        Boolean @default(true)
+  createdAt       DateTime @default(now())
+
+  classSection ClassSection @relation(fields: [classSectionId], references: [id])
+  subject      Subject      @relation(fields: [subjectId], references: [id])
+  course       Course       @relation(fields: [courseId], references: [id])
+  faculty      Faculty      @relation(fields: [facultyId], references: [id])
+}
+
+// ====================== MODULE 4: EXAMINATIONS ======================
+model ExamSchedule {
+  id           String   @id @default(cuid())
+  name         String
+  programId    String
+  semester     Int
+  academicYear String
+  startDate    DateTime
+  endDate      DateTime
+  type         String   @default("MIDTERM")
+  description  String?
+  isPublished  Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  program    Program      @relation(fields: [programId], references: [id])
+  exams      Exam[]
+  hallTickets HallTicket[]
+  results    Result[]
+}
+
+model Exam {
+  id            String   @id @default(cuid())
+  scheduleId    String
+  courseId      String
+  subjectId     String
+  date          DateTime
+  startTime     String
+  endTime       String
+  maxMarks      Int      @default(100)
+  roomNo        String?
+  invigilatorId String?
+  createdAt     DateTime @default(now())
+
+  schedule    ExamSchedule @relation(fields: [scheduleId], references: [id])
+  course      Course       @relation(fields: [courseId], references: [id])
+  subject     Subject      @relation(fields: [subjectId], references: [id])
+  invigilator Faculty?     @relation(fields: [invigilatorId], references: [id])
+  marks       Mark[]
+}
+
+model HallTicket {
+  id             String   @id @default(cuid())
+  studentId      String
+  examScheduleId String
+  issuedAt       DateTime @default(now())
+  isDownloaded   Boolean  @default(false)
+
+  student      Student      @relation(fields: [studentId], references: [id])
+  examSchedule ExamSchedule @relation(fields: [examScheduleId], references: [id])
+}
+
+model Mark {
+  id            String   @id @default(cuid())
+  studentId     String
+  examId        String
+  courseId      String
+  subjectId     String
+  internalMarks Float?
+  externalMarks Float?
+  totalMarks    Float?
+  grade         String?
+  gradePoint    Float?
+  result        String   @default("PENDING")
+  enteredBy     String
+  enteredAt     DateTime @default(now())
+  isApproved    Boolean  @default(false)
+  approvedBy    String?
+  approvedAt    DateTime?
+
+  student Student @relation(fields: [studentId], references: [id])
+  exam    Exam    @relation(fields: [examId], references: [id])
+  course  Course  @relation(fields: [courseId], references: [id])
+  subject Subject @relation(fields: [subjectId], references: [id])
+}
+
+model Result {
+  id             String   @id @default(cuid())
+  studentId      String
+  examScheduleId String
+  totalMarks     Float?
+  percentage     Float?
+  grade          String?
+  cgpa           Float?
+  rank           Int?
+  status         String   @default("PENDING")
+  publishedAt    DateTime @default(now())
+  isPublished    Boolean  @default(false)
+
+  student      Student      @relation(fields: [studentId], references: [id])
+  examSchedule ExamSchedule @relation(fields: [examScheduleId], references: [id])
+}
+
+// ====================== MODULE 5: ATTENDANCE ======================
+model Attendance {
+  id             String   @id @default(cuid())
+  studentId      String
+  classSectionId String?
+  date           DateTime
+  status         String
+  period         String?
+  subjectId      String?
+  facultyId      String?
+  remark         String?
+  markedAt       DateTime @default(now())
+  markedBy       String
+
+  student      Student      @relation(fields: [studentId], references: [id])
+  classSection ClassSection? @relation(fields: [classSectionId], references: [id])
+  subject      Subject?     @relation(fields: [subjectId], references: [id])
+  faculty      Faculty?     @relation(fields: [facultyId], references: [id])
+}
+
+// ====================== MODULE 6: FACULTY MANAGEMENT ======================
+model Faculty {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  employeeId      String   @unique
+  firstName       String
+  lastName        String
+  email           String   @unique
+  phone           String
+  department      String
+  designation     String
+  qualification   String
+  specialization  String?
+  dateOfJoining   DateTime
+  salary          Float?
+  address         String
+  photoUrl        String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user               User               @relation(fields: [userId], references: [id])
+  timetables         Timetable[]
+  facultySubjects    FacultySubject[]
+  leaveRequests      LeaveRequest[]
+  performanceReviews PerformanceReview[]
+  examsInvigilated   Exam[]
+  classSectionsTaught ClassSection[]
+  attendanceMarked   Attendance[]
+}
+
+model FacultySubject {
+  id           String @id @default(cuid())
+  facultyId    String
+  courseId     String
+  subjectId    String
+  semester     Int
+  academicYear String
+
+  faculty Faculty @relation(fields: [facultyId], references: [id])
+  course  Course  @relation(fields: [courseId], references: [id])
+  subject Subject @relation(fields: [subjectId], references: [id])
+}
+
+model LeaveRequest {
+  id         String   @id @default(cuid())
+  facultyId  String
+  type       String
+  startDate  DateTime
+  endDate    DateTime
+  reason     String
+  status     String   @default("PENDING")
+  approvedBy String?
+  approvedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  faculty Faculty @relation(fields: [facultyId], references: [id])
+}
+
+model PerformanceReview {
+  id         String   @id @default(cuid())
+  facultyId  String
+  reviewer   String
+  rating     Int
+  feedback   String?
+  reviewDate DateTime @default(now())
+  period     String
+
+  faculty Faculty @relation(fields: [facultyId], references: [id])
+}
+
+// ====================== MODULE 7: FEE MANAGEMENT ======================
+model FeeStructure {
+  id           String   @id @default(cuid())
+  programId    String
+  name         String
+  semester     Int
+  academicYear String
+  tuitionFee   Float
+  examFee      Float
+  libraryFee   Float
+  labFee       Float
+  sportsFee    Float
+  hostelFee    Float?
+  transportFee Float?
+  otherFees    Float    @default(0)
+  totalFee     Float
+  dueDate      DateTime?
+  lateFee      Float    @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  program Program      @relation(fields: [programId], references: [id])
+  accounts FeeAccount[]
+}
+
+model FeeAccount {
+  id             String   @id @default(cuid())
+  studentId      String
+  feeStructureId String
+  totalFee       Float
+  paidAmount     Float    @default(0)
+  dueAmount      Float
+  status         String   @default("UNPAID")
+  dueDate        DateTime?
+  createdAt      DateTime @default(now())
+
+  student      Student      @relation(fields: [studentId], references: [id])
+  feeStructure FeeStructure @relation(fields: [feeStructureId], references: [id])
+  payments     Payment[]
+}
+
+model Payment {
+  id              String   @id @default(cuid())
+  feeAccountId    String
+  transactionId   String   @unique
+  amount          Float
+  method          String
+  paymentDate     DateTime @default(now())
+  status          String   @default("COMPLETED")
+  razorpayOrderId String?
+  receiptNo       String
+  remarks         String?
+  createdAt       DateTime @default(now())
+
+  feeAccount FeeAccount @relation(fields: [feeAccountId], references: [id])
+}
+
+// ====================== MODULE 8: ACCOUNTS ======================
+model LedgerAccount {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  type      String
+  balance   Float    @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  voucherEntries VoucherEntry[]
+}
+
+model Voucher {
+  id          String   @id @default(cuid())
+  voucherNo   String   @unique
+  type        String
+  date        DateTime @default(now())
+  description String?
+  amount      Float
+  status      String   @default("POSTED")
+  createdBy   String
+  createdAt   DateTime @default(now())
+
+  entries VoucherEntry[]
+}
+
+model VoucherEntry {
+  id        String @id @default(cuid())
+  voucherId String
+  accountId String
+  debit     Float  @default(0)
+  credit    Float  @default(0)
+  narration String?
+
+  voucher Voucher       @relation(fields: [voucherId], references: [id])
+  account LedgerAccount @relation(fields: [accountId], references: [id])
+}
+
+model BudgetPlan {
+  id          String   @id @default(cuid())
+  fiscalYear  String
+  category    String
+  allocated   Float
+  spent       Float    @default(0)
+  description String?
+  createdAt   DateTime @default(now())
+}
+
+// ====================== MODULE 9: LIBRARY ======================
+model Book {
+  id          String   @id @default(cuid())
+  isbn        String?
+  title       String
+  author      String
+  publisher   String?
+  edition     String?
+  year        Int?
+  category    String
+  rackNo      String?
+  quantity    Int      @default(1)
+  available   Int      @default(1)
+  price       Float?
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  issues BookIssue[]
+}
+
+model BookIssue {
+  id         String   @id @default(cuid())
+  bookId     String
+  studentId  String
+  issueDate  DateTime @default(now())
+  dueDate    DateTime
+  returnDate DateTime?
+  status     String   @default("ISSUED")
+  fine       Float    @default(0)
+  finePaid   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  book    Book    @relation(fields: [bookId], references: [id])
+  student Student @relation(fields: [studentId], references: [id])
+}
+
+// ====================== MODULE 10: HOSTEL ======================
+model Hostel {
+  id         String @id @default(cuid())
+  name       String
+  type       String
+  wardenId   String?
+  address    String
+  phone      String?
+  totalRooms Int
+  createdAt  DateTime @default(now())
+
+  rooms    HostelRoom[]
+  messMenus MessMenu[]
+}
+
+model HostelRoom {
+  id       String @id @default(cuid())
+  hostelId String
+  roomNo   String
+  type     String
+  capacity Int
+  occupied Int    @default(0)
+  rent     Float
+  floor    Int?
+  isActive Boolean @default(true)
+
+  hostel      Hostel             @relation(fields: [hostelId], references: [id])
+  allocations HostelAllocation[]
+}
+
+model HostelAllocation {
+  id        String   @id @default(cuid())
+  studentId String   @unique
+  roomId    String
+  startDate DateTime @default(now())
+  endDate   DateTime?
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+
+  student Student    @relation(fields: [studentId], references: [id])
+  room    HostelRoom @relation(fields: [roomId], references: [id])
+}
+
+model MessMenu {
+  id       String @id @default(cuid())
+  day      String
+  meal     String
+  items    String
+  hostelId String
+
+  hostel Hostel @relation(fields: [hostelId], references: [id])
+}
+
+model Visitor {
+  id          String   @id @default(cuid())
+  studentId   String
+  visitorName String
+  relation    String
+  phone       String
+  entryTime   DateTime @default(now())
+  exitTime    DateTime?
+  purpose     String
+  createdAt   DateTime @default(now())
+
+  student Student @relation(fields: [studentId], references: [id])
+}
+
+// ====================== MODULE 11: HR & PAYROLL ======================
+model Staff {
+  id            String   @id @default(cuid())
+  employeeId    String   @unique
+  firstName     String
+  lastName      String
+  email         String   @unique
+  phone         String
+  department    String
+  designation   String
+  type          String
+  dateOfJoining DateTime
+  salary        Float?
+  bankAccount   String?
+  ifscCode      String?
+  panNo         String?
+  uanNo         String?
+  address       String
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+}
+
+model SalaryStructure {
+  id             String   @id @default(cuid())
+  staffId        String
+  basicPay       Float
+  hra            Float
+  da             Float
+  ta             Float
+  pfDeduction    Float
+  taxDeduction   Float
+  otherAllowance Float    @default(0)
+  otherDeduction Float    @default(0)
+  netSalary      Float
+  effectiveFrom  DateTime
+  createdAt      DateTime @default(now())
+}
+
+model Payslip {
+  id             String   @id @default(cuid())
+  staffId        String
+  month          Int
+  year           Int
+  basicPay       Float
+  hra            Float
+  da             Float
+  ta             Float
+  otherAllowance Float    @default(0)
+  grossPay       Float
+  pfDeduction    Float
+  taxDeduction   Float
+  otherDeduction Float    @default(0)
+  netPay         Float
+  status         String   @default("GENERATED")
+  generatedAt    DateTime @default(now())
+  paidAt         DateTime?
+}
+
+// ====================== MODULE 12: TRANSPORT ======================
+model TransportRoute {
+  id         String   @id @default(cuid())
+  name       String
+  startPoint String
+  endPoint   String
+  distance   Float?
+  fee        Float
+  capacity   Int
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  vehicles TransportVehicle[]
+  passes   TransportPass[]
+}
+
+model TransportVehicle {
+  id        String @id @default(cuid())
+  routeId   String
+  vehicleNo String @unique
+  type      String
+  capacity  Int
+  driverId  String?
+  isActive  Boolean @default(true)
+
+  route  TransportRoute   @relation(fields: [routeId], references: [id])
+  driver TransportDriver? @relation(fields: [driverId], references: [id])
+}
+
+model TransportDriver {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String
+  licenseNo String
+  address   String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  vehicles TransportVehicle[]
+}
+
+model TransportPass {
+  id         String   @id @default(cuid())
+  studentId  String   @unique
+  routeId    String
+  amount     Float
+  issueDate  DateTime @default(now())
+  expiryDate DateTime
+  status     String   @default("ACTIVE")
+
+  student Student        @relation(fields: [studentId], references: [id])
+  route   TransportRoute @relation(fields: [routeId], references: [id])
+}
+
+// ====================== MODULE 13: COMMUNICATION ======================
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  fromUserId String
+  toUserId   String
+  subject    String?
+  body       String
+  isRead     Boolean  @default(false)
+  sentAt     DateTime @default(now())
+  readAt     DateTime?
+
+  fromUser User @relation("sentMessages", fields: [fromUserId], references: [id])
+  toUser   User @relation("receivedMessages", fields: [toUserId], references: [id])
+}
+
+model Broadcast {
+  id        String   @id @default(cuid())
+  title     String
+  message   String
+  type      String
+  audience  String
+  status    String   @default("DRAFT")
+  sentAt    DateTime?
+  createdAt DateTime @default(now())
+}
+
+// ====================== MODULE 14: ALUMNI ======================
+model Alumni {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  studentId       String?
+  graduationYear  Int
+  program         String
+  currentEmployer String?
+  position        String?
+  linkedinUrl     String?
+  address         String?
+  phone           String
+  isVerified      Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  user      User             @relation(fields: [userId], references: [id])
+  donations AlumniDonation[]
+}
+
+model AlumniDonation {
+  id            String   @id @default(cuid())
+  alumniId      String
+  amount        Float
+  purpose       String?
+  paymentMethod String
+  date          DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  alumni Alumni @relation(fields: [alumniId], references: [id])
+}
+
+model JobBoard {
+  id           String   @id @default(cuid())
+  company      String
+  title        String
+  description  String
+  location     String
+  salary       String?
+  contactEmail String
+  postedBy     String?
+  postedAt     DateTime @default(now())
+  expiresAt    DateTime?
+  isActive     Boolean  @default(true)
+}
+
+model AlumniEvent {
+  id           String   @id @default(cuid())
+  title        String
+  description  String?
+  date         DateTime
+  venue        String?
+  type         String
+  maxAttendees Int?
+  createdAt    DateTime @default(now())
+}
+
+// ====================== MODULE 15: PARENT ======================
+model Parent {
+  id        String @id @default(cuid())
+  userId    String @unique
+  name      String
+  email     String @unique
+  phone     String
+  address   String?
+  relation  String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+// ====================== MODULE 16: SETTINGS & AUDIT ======================
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  module    String
+  details   String?
+  ipAddress String?
+  timestamp DateTime @default(now())
+}
+
+model SystemSetting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+}
