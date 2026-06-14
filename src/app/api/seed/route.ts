@@ -7,19 +7,19 @@ async function seedAll() {
 
   // 1. Users
   const adminUser = await prisma.user.upsert({
-    where: { email: "admin@college.edu" }, update: { isActive: true },
+    where: { email: "admin@college.edu" }, update: { isActive: true, password: pw },
     create: { email: "admin@college.edu", password: pw, name: "Admin User", role: "ADMIN", phone: "+91-9876543210", isActive: true },
   })
-  const fac1 = await prisma.user.upsert({ where: { email: "faculty1@college.edu" }, update: {}, create: { email: "faculty1@college.edu", password: pw, name: "Dr. Rajesh Sharma", role: "FACULTY", isActive: true } })
-  const fac2 = await prisma.user.upsert({ where: { email: "faculty2@college.edu" }, update: {}, create: { email: "faculty2@college.edu", password: pw, name: "Prof. Priya Patel", role: "FACULTY", isActive: true } })
-  const fac3 = await prisma.user.upsert({ where: { email: "faculty3@college.edu" }, update: {}, create: { email: "faculty3@college.edu", password: pw, name: "Dr. Amit Verma", role: "FACULTY", isActive: true } })
+  const fac1 = await prisma.user.upsert({ where: { email: "faculty1@college.edu" }, update: { password: pw }, create: { email: "faculty1@college.edu", password: pw, name: "Dr. Rajesh Sharma", role: "FACULTY", isActive: true } })
+  const fac2 = await prisma.user.upsert({ where: { email: "faculty2@college.edu" }, update: { password: pw }, create: { email: "faculty2@college.edu", password: pw, name: "Prof. Priya Patel", role: "FACULTY", isActive: true } })
+  const fac3 = await prisma.user.upsert({ where: { email: "faculty3@college.edu" }, update: { password: pw }, create: { email: "faculty3@college.edu", password: pw, name: "Dr. Amit Verma", role: "FACULTY", isActive: true } })
   const stuUsers: any[] = []
   for (let i = 1; i <= 12; i++) {
-    const u = await prisma.user.upsert({ where: { email: `student${i}@college.edu` }, update: {}, create: { email: `student${i}@college.edu`, password: pw, name: `Student ${i}`, role: "STUDENT", isActive: true } })
+    const u = await prisma.user.upsert({ where: { email: `student${i}@college.edu` }, update: { password: pw }, create: { email: `student${i}@college.edu`, password: pw, name: `Student ${i}`, role: "STUDENT", isActive: true } })
     stuUsers.push(u)
   }
-  const parentU = await prisma.user.upsert({ where: { email: "parent1@college.edu" }, update: {}, create: { email: "parent1@college.edu", password: pw, name: "Parent User", role: "PARENT", isActive: true } })
-  const parentU2 = await prisma.user.upsert({ where: { email: "parent2@college.edu" }, update: {}, create: { email: "parent2@college.edu", password: pw, name: "Parent 2", role: "PARENT", isActive: true } })
+  const parentU = await prisma.user.upsert({ where: { email: "parent1@college.edu" }, update: { password: pw }, create: { email: "parent1@college.edu", password: pw, name: "Parent User", role: "PARENT", isActive: true } })
+  const parentU2 = await prisma.user.upsert({ where: { email: "parent2@college.edu" }, update: { password: pw }, create: { email: "parent2@college.edu", password: pw, name: "Parent 2", role: "PARENT", isActive: true } })
 
   // 2. Permissions & Roles
   const modules = [
@@ -36,14 +36,14 @@ async function seedAll() {
   const perms: any[] = []
   for (const m of modules) {
     perms.push(await prisma.permission.upsert({
-      where: { key: m.key }, update: {}, create: { key: m.key, name: m.name, module: m.key },
+      where: { key: m.key }, update: { password: pw }, create: { key: m.key, name: m.name, module: m.key },
     }))
   }
 
-  const adminRole = await prisma.role.upsert({ where: { name: "Admin" }, update: {}, create: { name: "Admin", description: "Full system access", isSystem: true } })
-  const facultyRole = await prisma.role.upsert({ where: { name: "Faculty" }, update: {}, create: { name: "Faculty", description: "Academic staff access", isSystem: true } })
-  const studentRole = await prisma.role.upsert({ where: { name: "Student" }, update: {}, create: { name: "Student", description: "Student self-service", isSystem: true } })
-  const parentRole = await prisma.role.upsert({ where: { name: "Parent" }, update: {}, create: { name: "Parent", description: "Parent view access", isSystem: true } })
+  const adminRole = await prisma.role.upsert({ where: { name: "Admin" }, update: { password: pw }, create: { name: "Admin", description: "Full system access", isSystem: true } })
+  const facultyRole = await prisma.role.upsert({ where: { name: "Faculty" }, update: { password: pw }, create: { name: "Faculty", description: "Academic staff access", isSystem: true } })
+  const studentRole = await prisma.role.upsert({ where: { name: "Student" }, update: { password: pw }, create: { name: "Student", description: "Student self-service", isSystem: true } })
+  const parentRole = await prisma.role.upsert({ where: { name: "Parent" }, update: { password: pw }, create: { name: "Parent", description: "Parent view access", isSystem: true } })
 
   const facultyMods = ["student", "curriculum", "examination", "attendance", "fee", "timetable", "report", "faculty", "admission"]
   const studentMods = ["student", "curriculum", "examination", "attendance", "fee", "library", "hostel", "transport", "portal", "timetable"]
@@ -60,15 +60,15 @@ async function seedAll() {
   }
 
   // Role assignments
-  for (const u of [adminUser]) await prisma.roleAssignment.upsert({ where: { userId_roleId: { userId: u.id, roleId: adminRole.id } }, update: {}, create: { userId: u.id, roleId: adminRole.id } })
-  for (const u of [fac1, fac2, fac3]) await prisma.roleAssignment.upsert({ where: { userId_roleId: { userId: u.id, roleId: facultyRole.id } }, update: {}, create: { userId: u.id, roleId: facultyRole.id } })
-  for (const u of stuUsers) await prisma.roleAssignment.upsert({ where: { userId_roleId: { userId: u.id, roleId: studentRole.id } }, update: {}, create: { userId: u.id, roleId: studentRole.id } })
-  for (const u of [parentU, parentU2]) await prisma.roleAssignment.upsert({ where: { userId_roleId: { userId: u.id, roleId: parentRole.id } }, update: {}, create: { userId: u.id, roleId: parentRole.id } })
+  for (const u of [adminUser]) await prisma.roleAssignment.upsert({ where: { userId_roleId: { userId: u.id, roleId: adminRole.id } }, update: { password: pw }, create: { userId: u.id, roleId: adminRole.id } })
+  for (const u of [fac1, fac2, fac3]) await prisma.roleAssignment.upsert({ where: { userId_roleId: { userId: u.id, roleId: facultyRole.id } }, update: { password: pw }, create: { userId: u.id, roleId: facultyRole.id } })
+  for (const u of stuUsers) await prisma.roleAssignment.upsert({ where: { userId_roleId: { userId: u.id, roleId: studentRole.id } }, update: { password: pw }, create: { userId: u.id, roleId: studentRole.id } })
+  for (const u of [parentU, parentU2]) await prisma.roleAssignment.upsert({ where: { userId_roleId: { userId: u.id, roleId: parentRole.id } }, update: { password: pw }, create: { userId: u.id, roleId: parentRole.id } })
 
   // 3. Programs
-  const prog1 = await prisma.program.upsert({ where: { code: "BTECH-CSE" }, update: {}, create: { code: "BTECH-CSE", name: "B.Tech Computer Science & Engineering", duration: 4, degreeType: "Bachelor", department: "Engineering", totalSemesters: 8, totalCredits: 160 } })
-  const prog2 = await prisma.program.upsert({ where: { code: "BCA" }, update: {}, create: { code: "BCA", name: "Bachelor of Computer Applications", duration: 3, degreeType: "Bachelor", department: "Computer Applications", totalSemesters: 6, totalCredits: 120 } })
-  const prog3 = await prisma.program.upsert({ where: { code: "MBA" }, update: {}, create: { code: "MBA", name: "Master of Business Administration", duration: 2, degreeType: "Master", department: "Management", totalSemesters: 4, totalCredits: 80 } })
+  const prog1 = await prisma.program.upsert({ where: { code: "BTECH-CSE" }, update: { password: pw }, create: { code: "BTECH-CSE", name: "B.Tech Computer Science & Engineering", duration: 4, degreeType: "Bachelor", department: "Engineering", totalSemesters: 8, totalCredits: 160 } })
+  const prog2 = await prisma.program.upsert({ where: { code: "BCA" }, update: { password: pw }, create: { code: "BCA", name: "Bachelor of Computer Applications", duration: 3, degreeType: "Bachelor", department: "Computer Applications", totalSemesters: 6, totalCredits: 120 } })
+  const prog3 = await prisma.program.upsert({ where: { code: "MBA" }, update: { password: pw }, create: { code: "MBA", name: "Master of Business Administration", duration: 2, degreeType: "Master", department: "Management", totalSemesters: 4, totalCredits: 80 } })
 
   // 4. Courses
   const courses: any[] = []
@@ -89,7 +89,7 @@ async function seedAll() {
     { code: "MBA202", name: "Human Resource Management", programId: prog3.id, semester: 4, credits: 3 },
   ]
   for (const cd of courseData) {
-    const c = await prisma.course.upsert({ where: { code: cd.code }, update: {}, create: cd })
+    const c = await prisma.course.upsert({ where: { code: cd.code }, update: { password: pw }, create: cd })
     courses.push(c)
   }
 
@@ -121,7 +121,7 @@ async function seedAll() {
     ],
   ]
   for (const sd of subjectData) {
-    const s = await prisma.subject.upsert({ where: { code: sd.code }, update: {}, create: sd })
+    const s = await prisma.subject.upsert({ where: { code: sd.code }, update: { password: pw }, create: sd })
     subjects.push(s)
   }
 
@@ -133,7 +133,7 @@ async function seedAll() {
   ]
   const facultys: any[] = []
   for (const fp of facultyProfiles) {
-    const f = await prisma.faculty.upsert({ where: { employeeId: fp.employeeId }, update: {}, create: fp })
+    const f = await prisma.faculty.upsert({ where: { employeeId: fp.employeeId }, update: { password: pw }, create: fp })
     facultys.push(f)
   }
 
@@ -162,7 +162,7 @@ async function seedAll() {
     const parts = studentNames[i].split(" ")
     const s = await prisma.student.upsert({
       where: { rollNo: `S2025${String(i + 1).padStart(3, "0")}` },
-      update: {},
+      update: { password: pw },
       create: {
         userId: stuUsers[i].id, rollNo: `S2025${String(i + 1).padStart(3, "0")}`, admissionNo: `ADM${String(i + 1).padStart(4, "0")}`,
         firstName: parts[0], lastName: parts[1] || "", dateOfBirth: new Date(`200${(i % 5) + 2}-0${(i % 9) + 1}-15`),
@@ -299,7 +299,7 @@ async function seedAll() {
     { isbn: "978-0-07-802212-8", title: "Accounting Principles", author: "Weygandt", publisher: "Wiley", year: 2018, category: "Management", rackNo: "E1", quantity: 3, available: 3, price: 599 },
   ]
   for (const b of books) {
-    await prisma.book.upsert({ where: { id: b.isbn || b.title }, update: {}, create: b })
+    await prisma.book.upsert({ where: { id: b.isbn || b.title }, update: { password: pw }, create: b })
   }
 
   // 15. Hostel
@@ -335,15 +335,15 @@ async function seedAll() {
   }
 
   // 18. Accounts
-  const acct1 = await prisma.ledgerAccount.upsert({ where: { code: "CASH-001" }, update: {}, create: { code: "CASH-001", name: "Cash Account", type: "ASSET", balance: 500000 } })
-  const acct2 = await prisma.ledgerAccount.upsert({ where: { code: "BANK-001" }, update: {}, create: { code: "BANK-001", name: "Bank Account - SBI", type: "ASSET", balance: 2500000 } })
-  const acct3 = await prisma.ledgerAccount.upsert({ where: { code: "FEE-001" }, update: {}, create: { code: "FEE-001", name: "Fee Receivable", type: "ASSET", balance: 500000 } })
+  const acct1 = await prisma.ledgerAccount.upsert({ where: { code: "CASH-001" }, update: { password: pw }, create: { code: "CASH-001", name: "Cash Account", type: "ASSET", balance: 500000 } })
+  const acct2 = await prisma.ledgerAccount.upsert({ where: { code: "BANK-001" }, update: { password: pw }, create: { code: "BANK-001", name: "Bank Account - SBI", type: "ASSET", balance: 2500000 } })
+  const acct3 = await prisma.ledgerAccount.upsert({ where: { code: "FEE-001" }, update: { password: pw }, create: { code: "FEE-001", name: "Fee Receivable", type: "ASSET", balance: 500000 } })
 
   // 19. Alumni
   for (let i = 0; i < 2; i++) {
     await prisma.alumni.upsert({
       where: { userId: stuUsers[i].id },
-      update: {},
+      update: { password: pw },
       create: { userId: stuUsers[i].id, studentId: students[i].id, graduationYear: 2029, program: programAssign[i].name, currentEmployer: "Tech Corp", position: "Software Developer", phone: stuUsers[i].phone!, isVerified: true },
     })
   }
