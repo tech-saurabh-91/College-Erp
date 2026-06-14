@@ -98,6 +98,10 @@ export default function UsersPage() {
     setShowPermModal(user.id)
   }
 
+  function selectAllUserPerm(module: string, checked: boolean) {
+    setUserPerms(prev => ({ ...prev, [module]: { module, canCreate: checked, canRead: checked, canUpdate: checked, canDelete: checked } }))
+  }
+
   function togglePerm(module: string, field: "canCreate" | "canRead" | "canUpdate" | "canDelete") {
     setUserPerms(prev => {
       const existing = prev[module] || { module, canCreate: false, canRead: false, canUpdate: false, canDelete: false }
@@ -267,9 +271,15 @@ export default function UsersPage() {
               <p className="text-xs text-gray-500 mb-3">Override CRUD access for each module. These override role-based permissions.</p>
               {MODULES.map(mod => {
                 const p = userPerms[mod.key] || { module: mod.key, canCreate: false, canRead: false, canUpdate: false, canDelete: false }
+                const allChecked = p.canRead && p.canCreate && p.canUpdate && p.canDelete
   return (
                   <div key={mod.key} className="flex items-center justify-between p-2.5 rounded-lg hover:bg-gray-50 border border-gray-100">
-                    <span className="text-sm font-medium text-gray-700 w-1/3">{mod.label}</span>
+                    <div className="flex items-center gap-3 w-1/3">
+                      <input type="checkbox" checked={!!allChecked}
+                        onChange={() => selectAllUserPerm(mod.key, !allChecked)}
+                        className="w-3.5 h-3.5 rounded border-gray-400 text-blue-600" title="Select all" />
+                      <span className="text-sm font-medium text-gray-700">{mod.label}</span>
+                    </div>
                     <div className="flex gap-4">
                       {(["canRead", "canCreate", "canUpdate", "canDelete"] as const).map(field => (
                         <label key={field} className="flex items-center gap-1.5 cursor-pointer">

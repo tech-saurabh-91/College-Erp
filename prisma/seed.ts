@@ -123,13 +123,13 @@ async function main() {
   }
 
   // Faculty: read + write on academic modules
-  const facultyModules = ["student", "curriculum", "examination", "attendance", "fee", "timetable", "report", "faculty"]
+  const facultyModules = ["student", "curriculum", "examination", "attendance", "fee", "timetable", "report", "faculty", "communication", "portal"]
   for (const perm of permissions) {
     const isFacultyMod = facultyModules.includes(perm.module)
     await prisma.rolePermission.create({
       data: {
         roleId: facultyRole.id, permissionId: perm.id,
-        canRead: isFacultyMod || perm.module === "communication" || perm.module === "portal",
+        canRead: isFacultyMod,
         canCreate: isFacultyMod,
         canUpdate: isFacultyMod,
         canDelete: perm.module === "attendance",
@@ -137,8 +137,8 @@ async function main() {
     })
   }
 
-  // Student: read only on their modules
-  const studentModules = ["student", "curriculum", "examination", "attendance", "fee", "library", "hostel", "transport", "portal", "timetable"]
+  // Student: read only on self-service modules
+  const studentModules = ["student", "attendance", "examination", "fee", "portal"]
   for (const perm of permissions) {
     await prisma.rolePermission.create({
       data: {
@@ -149,8 +149,8 @@ async function main() {
     })
   }
 
-  // Parent: read only on relevant modules
-  const parentModules = ["attendance", "fee", "examination", "portal", "communication", "transport"]
+  // Parent: read only on child-related modules
+  const parentModules = ["student", "attendance", "fee", "examination", "portal"]
   for (const perm of permissions) {
     await prisma.rolePermission.create({
       data: {
