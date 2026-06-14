@@ -205,16 +205,52 @@ function StudentDashboard({ data }: { data: DashboardData | null }) {
           ) : <p className="text-gray-400 text-sm">No fee data</p>}
         </div>
         <div className="stat-card">
-          <div className="flex items-center gap-2 mb-2"><Award className="w-5 h-5 text-purple-500" /><span className="text-sm font-medium text-gray-700">Recent Exams</span></div>
+          <div className="flex items-center gap-2 mb-2"><Award className="w-5 h-5 text-purple-500" /><span className="text-sm font-medium text-gray-700">My Results</span></div>
           <p className="text-3xl font-bold text-gray-800">{marks?.length ?? 0}</p>
           <p className="text-xs text-gray-500 mt-1">Subjects evaluated</p>
         </div>
       </div>
 
-      {/* Recent Marks */}
+      {/* Fee Breakdown */}
+      {fee?.accounts && fee.accounts.length > 0 && (
+        <div className="card">
+          <h4 className="font-semibold text-gray-800 mb-3">Fee Accounts</h4>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr><th className="table-header">Structure</th><th className="table-header">Total Fee</th><th className="table-header">Paid</th><th className="table-header">Due</th><th className="table-header">Status</th></tr></thead>
+              <tbody>
+                {fee.accounts.map((a: any) => (
+                  <tr key={a.id} className="hover:bg-gray-50">
+                    <td className="table-cell">{a.feeStructure?.name || "-"}</td>
+                    <td className="table-cell">₹{a.totalFee?.toLocaleString()}</td>
+                    <td className="table-cell text-green-600 font-medium">₹{a.paidAmount?.toLocaleString()}</td>
+                    <td className="table-cell text-red-600 font-medium">₹{a.dueAmount?.toLocaleString()}</td>
+                    <td className="table-cell"><span className={`badge ${a.status === "PAID" ? "badge-success" : a.status === "PARTIAL" ? "badge-warning" : "badge-danger"}`}>{a.status}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {fee.accounts[0]?.payments?.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <h5 className="text-sm font-medium text-gray-700 mb-2">Recent Payments</h5>
+              <div className="space-y-1">
+                {fee.accounts[0].payments.map((p: any) => (
+                  <div key={p.id} className="flex items-center justify-between text-xs text-gray-600">
+                    <span>{new Date(p.paymentDate).toLocaleDateString()} - {p.method}</span>
+                    <span className="font-medium text-green-600">₹{p.amount}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Marks Table */}
       {marks && marks.length > 0 && (
         <div className="card">
-          <h4 className="font-semibold text-gray-800 mb-3">Recent Exam Results</h4>
+          <h4 className="font-semibold text-gray-800 mb-3">Subject-wise Results</h4>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead><tr><th className="table-header">Subject</th><th className="table-header">Exam</th><th className="table-header">Marks</th><th className="table-header">Result</th></tr></thead>
@@ -222,8 +258,8 @@ function StudentDashboard({ data }: { data: DashboardData | null }) {
                 {marks.map((m: any) => (
                   <tr key={m.id} className="hover:bg-gray-50">
                     <td className="table-cell">{m.subject?.name || "-"}</td>
-                    <td className="table-cell">{m.exam?.name || "-"}</td>
-                    <td className="table-cell">{m.marksObtained}/{m.totalMarks}</td>
+                    <td className="table-cell">{m.exam?.schedule?.name || "-"}</td>
+                    <td className="table-cell">{m.internalMarks || 0} + {m.externalMarks || 0} = <span className="font-semibold">{(m.internalMarks || 0) + (m.externalMarks || 0)}/{m.totalMarks}</span></td>
                     <td className="table-cell"><span className={`badge ${m.result === "PASS" ? "badge-success" : "badge-danger"}`}>{m.result}</span></td>
                   </tr>
                 ))}

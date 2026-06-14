@@ -1,4 +1,5 @@
 export const MODULES = [
+  { key: "dashboard", label: "Dashboard" },
   { key: "admission", label: "Admissions" },
   { key: "student", label: "Students" },
   { key: "curriculum", label: "Curriculum" },

@@ -61,17 +61,20 @@ export async function GET() {
       const attTotal = attendanceRecords.length
       const attPct = attTotal > 0 ? Math.round((present / attTotal) * 100) : 0
 
-      const feeAccount = await prisma.feeAccount.findFirst({
+      const feeAccounts = await prisma.feeAccount.findMany({
         where: { studentId: student.id },
-        select: { paidAmount: true, dueAmount: true, status: true },
+        include: { feeStructure: true, payments: { orderBy: { paymentDate: "desc" }, take: 3 } },
       })
 
-      const recentMarks = await prisma.mark.findMany({
+      const marks = await prisma.mark.findMany({
         where: { studentId: student.id },
-        include: { exam: true, subject: true },
+        include: { exam: { include: { schedule: { select: { name: true } } } }, subject: { select: { name: true } } },
         orderBy: { enteredAt: "desc" },
-        take: 5,
       })
+
+      const totalPaid = feeAccounts.reduce((s, a) => s + a.paidAmount, 0)
+      const totalDue = feeAccounts.reduce((s, a) => s + a.dueAmount, 0)
+      const feeStatus = feeAccounts.length > 0 ? feeAccounts[0].status : null
 
       return NextResponse.json({
         role: "STUDENT",
@@ -81,8 +84,8 @@ export async function GET() {
           enrollmentDate: student.enrollmentDate.toISOString(),
         },
         attendance: { total: attTotal, present, absent, leave, percentage: attPct },
-        fee: feeAccount ? { paid: feeAccount.paidAmount, due: feeAccount.dueAmount, status: feeAccount.status } : null,
-        recentMarks,
+        fee: feeAccounts.length > 0 ? { paid: totalPaid, due: totalDue, status: feeStatus, accounts: feeAccounts } : null,
+        recentMarks: marks,
       })
     }
 
