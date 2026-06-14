@@ -3,12 +3,14 @@ import { useEffect, useState } from "react"
 import { Plus, Search, X, Edit, Trash2, Eye } from "lucide-react"
 
 interface Program { id: string; code: string; name: string }
+interface ClassSection { id: string; name: string; program?: Program; semester: number; section: string }
 interface Student {
   id: string; rollNo: string; firstName: string; lastName: string; email: string; phone: string;
   gender: string; dateOfBirth: string; program?: Program; programId: string; currentSemester: number; batchYear: string;
   status: string; address: string; city: string; state: string; pincode: string;
   nationality: string; category: string; religion: string; aadharNo: string;
   fatherName: string; fatherPhone: string; motherName: string; motherPhone: string;
+  classSectionId?: string;
 }
 
 const statusColors: Record<string, string> = {
@@ -18,13 +20,19 @@ const statusColors: Record<string, string> = {
 export default function StudentsPage() {
   const [students, setStudents] = useState<Student[]>([])
   const [programs, setPrograms] = useState<Program[]>([])
+  const [classSections, setClassSections] = useState<ClassSection[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [programFilter, setProgramFilter] = useState("")
   const [showModal, setShowModal] = useState(false)
   const [editingStudent, setEditingStudent] = useState<Student | null>(null)
 
-  useEffect(() => { fetchStudents(); fetchPrograms() }, [])
+  useEffect(() => { fetchStudents(); fetchPrograms(); fetchClassSections() }, [])
+
+  async function fetchClassSections() {
+    try { const res = await fetch("/api/timetable/class-sections"); setClassSections(await res.json()) }
+    catch { setClassSections([]) }
+  }
 
   async function fetchStudents() {
     setLoading(true)
@@ -130,7 +138,7 @@ export default function StudentsPage() {
               <h2 className="text-lg font-semibold text-gray-800">{editingStudent ? "Edit Student" : "Add Student"}</h2>
               <button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-100 rounded"><X size={18} /></button>
             </div>
-            <StudentForm student={editingStudent} programs={programs}
+            <StudentForm student={editingStudent} programs={programs} classSections={classSections}
               onClose={() => { setShowModal(false); fetchStudents() }} />
           </div>
         </div>
@@ -139,7 +147,7 @@ export default function StudentsPage() {
   )
 }
 
-function StudentForm({ student, programs, onClose }: { student: Student | null; programs: Program[]; onClose: () => void }) {
+function StudentForm({ student, programs, classSections, onClose }: { student: Student | null; programs: Program[]; classSections: ClassSection[]; onClose: () => void }) {
   const [form, setForm] = useState<any>({
     firstName: student?.firstName || "",
     lastName: student?.lastName || "",
@@ -160,6 +168,7 @@ function StudentForm({ student, programs, onClose }: { student: Student | null; 
     motherName: student?.motherName || "",
     motherPhone: student?.motherPhone || "",
     programId: student?.programId || "",
+    classSectionId: student?.classSectionId || "",
     currentSemester: student?.currentSemester || 1,
     batchYear: student?.batchYear || "",
   })
@@ -260,6 +269,16 @@ function StudentForm({ student, programs, onClose }: { student: Student | null; 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Batch Year</label>
           <input value={form.batchYear} onChange={e => update("batchYear", e.target.value)} className="input-field" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Class Section</label>
+          <select value={form.classSectionId} onChange={e => update("classSectionId", e.target.value)} className="input-field">
+            <option value="">Select Class Section</option>
+            {classSections.filter(cs => !form.programId || cs.program?.id === form.programId).map(cs => (
+              <option key={cs.id} value={cs.id}>{cs.name} (Sem {cs.semester} - {cs.section})</option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-400 mt-1">Required for attendance tracking</p>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Father Name</label>

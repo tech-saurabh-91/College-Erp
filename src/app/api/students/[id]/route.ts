@@ -45,6 +45,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         guardianName: body.guardianName,
         guardianPhone: body.guardianPhone,
         programId: body.programId,
+        classSectionId: body.classSectionId || null,
         currentSemester: body.currentSemester,
         batchYear: body.batchYear,
         status: body.status,

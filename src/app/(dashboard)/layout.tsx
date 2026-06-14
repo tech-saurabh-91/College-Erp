@@ -41,7 +41,8 @@ const navItems = [
     { href: "/dashboard/alumni", label: "Alumni", icon: Globe },
     { href: "/dashboard/portals", label: "Portals", icon: Smartphone },
   ]},
-  { section: "Settings", items: [
+  { section: "Administration", items: [
+    { href: "/dashboard/users", label: "User Master", icon: Users },
     { href: "/dashboard/roles", label: "Roles & Permissions", icon: Settings },
   ]},
 ]

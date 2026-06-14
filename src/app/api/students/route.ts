@@ -83,6 +83,7 @@ export async function POST(req: NextRequest) {
         guardianName: body.guardianName,
         guardianPhone: body.guardianPhone,
         programId: body.programId,
+        classSectionId: body.classSectionId || null,
         currentSemester: body.currentSemester || 1,
         batchYear: body.batchYear,
         status: "ACTIVE",
