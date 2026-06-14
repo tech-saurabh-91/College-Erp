@@ -1,16 +1,40 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 
 export async function GET(req: NextRequest) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const role = (session.user as any).role
+  const userId = (session.user as any).id
+
   const { searchParams } = new URL(req.url)
   const type = searchParams.get("type")
   const classSectionId = searchParams.get("classSectionId")
   const date = searchParams.get("date")
   const month = searchParams.get("month")
   const year = searchParams.get("year")
-  const studentId = searchParams.get("studentId")
+  let studentId = searchParams.get("studentId")
 
   try {
+    // Resolve own student ID for STUDENT role
+    if (!studentId && role === "STUDENT") {
+      const myStudent = await prisma.student.findUnique({ where: { userId }, select: { id: true } })
+      if (myStudent) studentId = myStudent.id
+    }
+
+    // Resolve children IDs for PARENT role
+    let childIds: string[] = []
+    if (role === "PARENT") {
+      const parent = await prisma.parent.findUnique({ where: { userId }, select: { id: true } })
+      if (parent) {
+        const children = await prisma.student.findMany({ where: { parentId: parent.id }, select: { id: true } })
+        childIds = children.map(c => c.id)
+      }
+    }
+
     if (type === "sections") {
       const data = await prisma.classSection.findMany({
         include: { program: true, _count: { select: { students: true } } },
@@ -20,6 +44,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (type === "students") {
+      if (role !== "ADMIN" && role !== "FACULTY") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
       if (!classSectionId) return NextResponse.json({ error: "classSectionId required" }, { status: 400 })
       const students = await prisma.student.findMany({
         where: { classSectionId, status: "ACTIVE" },
@@ -30,6 +55,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (type === "attendance") {
+      if (role !== "ADMIN" && role !== "FACULTY") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
       if (!classSectionId || !date) return NextResponse.json({ error: "classSectionId and date required" }, { status: 400 })
       const dateObj = new Date(date)
       const records = await prisma.attendance.findMany({
@@ -41,6 +67,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (type === "summary") {
+      if (role !== "ADMIN" && role !== "FACULTY") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
       if (!classSectionId) return NextResponse.json({ error: "classSectionId required" }, { status: 400 })
       const where: any = { classSectionId }
       if (month) {
@@ -64,6 +91,13 @@ export async function GET(req: NextRequest) {
 
     if (type === "monthly") {
       if (!studentId || !month || !year) return NextResponse.json({ error: "studentId, month, year required" }, { status: 400 })
+      // Students can only view their own, parents can only view children's
+      if (role === "STUDENT") {
+        const myStudent = await prisma.student.findUnique({ where: { userId }, select: { id: true } })
+        if (!myStudent || myStudent.id !== studentId) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      } else if (role === "PARENT") {
+        if (!childIds.includes(studentId)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      }
       const m = parseInt(month) - 1
       const y = parseInt(year)
       const start = new Date(y, m, 1)
@@ -82,6 +116,13 @@ export async function GET(req: NextRequest) {
 
     if (type === "student-attendance") {
       if (!studentId) return NextResponse.json({ error: "studentId required" }, { status: 400 })
+      // Students can only view their own, parents can only view children's
+      if (role === "STUDENT") {
+        const myStudent = await prisma.student.findUnique({ where: { userId }, select: { id: true } })
+        if (!myStudent || myStudent.id !== studentId) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      } else if (role === "PARENT") {
+        if (!childIds.includes(studentId)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      }
       const records = await prisma.attendance.findMany({
         where: { studentId },
         orderBy: { date: "desc" },
@@ -102,6 +143,14 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const role = (session.user as any).role
+  if (role !== "ADMIN" && role !== "FACULTY") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
   try {
     const body = await req.json()
     const { type } = body

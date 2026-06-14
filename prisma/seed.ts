@@ -332,9 +332,17 @@ async function main() {
   console.log("✅ Created students")
 
   // ===================== PARENTS =====================
-  await prisma.parent.create({ data: { userId: parentUser1.id, name: "Sunita Singh", email: "parent1@college.edu", phone: "+91-9876543301", relation: "MOTHER" } })
-  await prisma.parent.create({ data: { userId: parentUser2.id, name: "Rajesh Patel", email: "parent2@college.edu", phone: "+91-9876543302", relation: "FATHER" } })
-  console.log("✅ Created parents")
+  const parent1 = await prisma.parent.create({ data: { userId: parentUser1.id, name: "Sunita Singh", email: "parent1@college.edu", phone: "+91-9876543301", relation: "MOTHER" } })
+  const parent2 = await prisma.parent.create({ data: { userId: parentUser2.id, name: "Rajesh Patel", email: "parent2@college.edu", phone: "+91-9876543302", relation: "FATHER" } })
+  // Link students to parents: first 6 to parent1, next 6 to parent2
+  const allStudents = await prisma.student.findMany({ orderBy: { rollNo: "asc" } })
+  for (let i = 0; i < allStudents.length; i++) {
+    await prisma.student.update({
+      where: { id: allStudents[i].id },
+      data: { parentId: i < 6 ? parent1.id : parent2.id },
+    })
+  }
+  console.log("✅ Created parents & linked to students")
 
   // ===================== ATTENDANCE (last 30 days) =====================
   const students = await prisma.student.findMany()

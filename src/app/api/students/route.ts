@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 
 export async function GET(req: NextRequest) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
   const { searchParams } = new URL(req.url)
   const search = searchParams.get("search")
   const program = searchParams.get("program")
+  const role = (session.user as any).role
+  const userId = (session.user as any).id
 
   try {
     const where: any = {}
@@ -18,6 +25,16 @@ export async function GET(req: NextRequest) {
       ]
     }
     if (program) where.programId = program
+
+    // Role-based filtering
+    if (role === "STUDENT") {
+      where.userId = userId
+    } else if (role === "PARENT") {
+      const parent = await prisma.parent.findUnique({ where: { userId } })
+      if (parent) where.parentId = parent.id
+      else where.id = "__none__"
+    }
+    // ADMIN and FACULTY see all
 
     const students = await prisma.student.findMany({
       where,

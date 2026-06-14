@@ -1,6 +1,7 @@
 "use client"
 import { useEffect, useState } from "react"
 import { Plus, Search, X, Edit, Trash2, Eye } from "lucide-react"
+import { useSession } from "next-auth/react"
 
 interface Program { id: string; code: string; name: string }
 interface ClassSection { id: string; name: string; program?: Program; semester: number; section: string }
@@ -18,6 +19,12 @@ const statusColors: Record<string, string> = {
 }
 
 export default function StudentsPage() {
+  const { data: session } = useSession()
+  const role = (session?.user as any)?.role
+  const isAdminOrFaculty = role === "ADMIN" || role === "FACULTY"
+  const isStudent = role === "STUDENT"
+  const isParent = role === "PARENT"
+
   const [students, setStudents] = useState<Student[]>([])
   const [programs, setPrograms] = useState<Program[]>([])
   const [classSections, setClassSections] = useState<ClassSection[]>([])
@@ -67,9 +74,11 @@ export default function StudentsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-800">Student Information</h1>
-        <button onClick={() => { setEditingStudent(null); setShowModal(true) }} className="btn-primary flex items-center gap-2">
-          <Plus size={16} /> Add Student
-        </button>
+        {isAdminOrFaculty && (
+          <button onClick={() => { setEditingStudent(null); setShowModal(true) }} className="btn-primary flex items-center gap-2">
+            <Plus size={16} /> Add Student
+          </button>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-4">
@@ -117,10 +126,16 @@ export default function StudentsPage() {
                     <td className="table-cell"><span className={`badge ${statusColors[s.status] || "badge-default"}`}>{s.status}</span></td>
                     <td className="table-cell">
                       <div className="flex items-center gap-2">
-                        <button onClick={() => { setEditingStudent(s); setShowModal(true) }}
-                          className="p-1.5 hover:bg-blue-50 rounded text-blue-600"><Edit size={15} /></button>
-                        <button onClick={() => handleDelete(s.id)}
-                          className="p-1.5 hover:bg-red-50 rounded text-red-600"><Trash2 size={15} /></button>
+                        {isAdminOrFaculty ? (
+                          <>
+                            <button onClick={() => { setEditingStudent(s); setShowModal(true) }}
+                              className="p-1.5 hover:bg-blue-50 rounded text-blue-600"><Edit size={15} /></button>
+                            <button onClick={() => handleDelete(s.id)}
+                              className="p-1.5 hover:bg-red-50 rounded text-red-600"><Trash2 size={15} /></button>
+                          </>
+                        ) : (
+                          <span className="text-xs text-gray-400">View only</span>
+                        )}
                       </div>
                     </td>
                   </tr>

@@ -1,6 +1,6 @@
 "use client"
 import { useEffect, useState } from "react"
-import { Plus, Search, X, Shield, CheckCircle, XCircle, Mail, Key, UserCheck, UserX, Settings } from "lucide-react"
+import { Plus, Search, X, Shield, CheckCircle, XCircle, Mail, Key, UserCheck, UserX, Settings, Lock } from "lucide-react"
 
 const MODULES = [
   { key: "admission", label: "Admissions" }, { key: "student", label: "Students" },
@@ -39,6 +39,9 @@ export default function UsersPage() {
   const [assigningUser, setAssigningUser] = useState<User | null>(null)
   const [showPermModal, setShowPermModal] = useState<string | null>(null)
   const [userPerms, setUserPerms] = useState<Record<string, UserPerm>>({})
+  const [showPwdModal, setShowPwdModal] = useState<string | null>(null)
+  const [newPassword, setNewPassword] = useState("")
+  const [pwdSaving, setPwdSaving] = useState(false)
 
   useEffect(() => { fetchUsers(); fetchRoles() }, [])
 
@@ -112,6 +115,17 @@ export default function UsersPage() {
     } catch { alert("Failed to save permissions") }
   }
 
+  async function resetPassword(userId: string) {
+    if (!newPassword || newPassword.length < 6) { alert("Password must be at least 6 characters"); return }
+    setPwdSaving(true)
+    try {
+      const res = await fetch(`/api/users/${userId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: newPassword }) })
+      if (!res.ok) { const d = await res.json(); alert(d.error || "Failed") }
+      else { alert("Password updated successfully"); setShowPwdModal(null); setNewPassword("") }
+    } catch { alert("Failed to reset password") }
+    setPwdSaving(false)
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -174,6 +188,7 @@ export default function UsersPage() {
                     <div className="flex items-center gap-2">
                       <button onClick={() => openRoleModal(u)} className="p-1.5 hover:bg-purple-50 rounded text-purple-600" title="Assign Roles"><Shield size={15} /></button>
                       <button onClick={() => openPermModal(u)} className="p-1.5 hover:bg-blue-50 rounded text-blue-600" title="Page Permissions"><Settings size={15} /></button>
+                      <button onClick={() => { setShowPwdModal(u.id); setNewPassword("") }} className="p-1.5 hover:bg-yellow-50 rounded text-yellow-600" title="Reset Password"><Lock size={15} /></button>
                       <button onClick={() => toggleStatus(u.id, u.isActive)} className={`p-1.5 rounded ${u.isActive ? "hover:bg-red-50 text-red-600" : "hover:bg-green-50 text-green-600"}`} title={u.isActive ? "Deactivate" : "Activate"}>
                         {u.isActive ? <UserX size={15} /> : <UserCheck size={15} />}
                       </button>
@@ -222,6 +237,25 @@ export default function UsersPage() {
         </div>
       )}
 
+      {showPwdModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { setShowPwdModal(null); setNewPassword("") }}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2"><Lock size={18} /> Reset Password</h2>
+              <button onClick={() => { setShowPwdModal(null); setNewPassword("") }} className="p-1 hover:bg-gray-100 rounded"><X size={18} /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-sm text-gray-500">Enter a new password for <strong>{users.find(u => u.id === showPwdModal)?.name}</strong></p>
+              <input type="text" className="input-field" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="New password (min 6 chars)" autoFocus />
+            </div>
+            <div className="flex items-center justify-end gap-3 p-5 border-t border-gray-100">
+              <button onClick={() => { setShowPwdModal(null); setNewPassword("") }} className="btn-secondary text-sm">Cancel</button>
+              <button onClick={() => resetPassword(showPwdModal)} disabled={pwdSaving || newPassword.length < 6} className="btn-primary text-sm">{pwdSaving ? "Saving..." : "Reset Password"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showPermModal && assigningUser && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { setShowPermModal(null); setAssigningUser(null) }}>
           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
@@ -233,7 +267,7 @@ export default function UsersPage() {
               <p className="text-xs text-gray-500 mb-3">Override CRUD access for each module. These override role-based permissions.</p>
               {MODULES.map(mod => {
                 const p = userPerms[mod.key] || { module: mod.key, canCreate: false, canRead: false, canUpdate: false, canDelete: false }
-                return (
+  return (
                   <div key={mod.key} className="flex items-center justify-between p-2.5 rounded-lg hover:bg-gray-50 border border-gray-100">
                     <span className="text-sm font-medium text-gray-700 w-1/3">{mod.label}</span>
                     <div className="flex gap-4">

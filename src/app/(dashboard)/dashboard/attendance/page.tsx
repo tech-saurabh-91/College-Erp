@@ -1,6 +1,7 @@
 "use client"
 import { useEffect, useState, useRef, useCallback } from "react"
-import { Check, X, CalendarDays, AlertTriangle, BarChart3, RefreshCw, FileText, Camera, Smartphone } from "lucide-react"
+import { Check, X, CalendarDays, AlertTriangle, BarChart3, RefreshCw, FileText, Camera, Smartphone, User } from "lucide-react"
+import { useSession } from "next-auth/react"
 
 interface ClassSection { id: string; name: string; program?: { name: string }; _count?: { students: number } }
 interface Student { id: string; rollNo: string; firstName: string; lastName: string; photoUrl?: string }
@@ -9,6 +10,13 @@ interface AttendanceRecord { id: string; studentId: string; status: string; rema
 type ViewType = "daily" | "monthly" | "camera"
 
 export default function AttendancePage() {
+  const { data: session } = useSession()
+  const role = (session?.user as any)?.role
+  const userId = (session?.user as any)?.id
+  const isAdminOrFaculty = role === "ADMIN" || role === "FACULTY"
+  const isStudent = role === "STUDENT"
+  const isParent = role === "PARENT"
+
   const [sections, setSections] = useState<ClassSection[]>([])
   const [students, setStudents] = useState<Student[]>([])
   const [records, setRecords] = useState<AttendanceRecord[]>([])
@@ -17,24 +25,61 @@ export default function AttendancePage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [statusMap, setStatusMap] = useState<Record<string, string>>({})
-  const [viewType, setViewType] = useState<ViewType>("daily")
+  const [viewType, setViewType] = useState<ViewType>(isAdminOrFaculty ? "daily" : "monthly")
   const [month, setMonth] = useState((new Date().getMonth() + 1).toString())
   const [year, setYear] = useState(new Date().getFullYear().toString())
   const [summary, setSummary] = useState<any>(null)
   const [selStudentReport, setSelStudentReport] = useState("")
   const [studentReport, setStudentReport] = useState<any>(null)
+  const [myStudentId, setMyStudentId] = useState("")
+  const [childList, setChildList] = useState<Student[]>([])
+  const [selChildId, setSelChildId] = useState("")
 
   useEffect(() => {
     fetch("/api/attendance?type=sections").then(r => r.json()).then(d => setSections(Array.isArray(d) ? d : []))
   }, [])
 
+  // Student: fetch own student ID
   useEffect(() => {
-    if (selSection) {
+    if (isStudent) {
+      fetch("/api/students?search=&program=").then(r => r.json()).then(d => {
+        const list = Array.isArray(d) ? d : []
+        if (list.length > 0) {
+          setMyStudentId(list[0].id)
+          setSelStudentReport(list[0].id)
+        }
+      })
+    }
+  }, [isStudent])
+
+  // Parent: fetch children
+  useEffect(() => {
+    if (isParent) {
+      fetch("/api/students?search=&program=").then(r => r.json()).then(d => {
+        const list = Array.isArray(d) ? d : []
+        setChildList(list)
+        if (list.length > 0) {
+          setSelChildId(list[0].id)
+          setSelStudentReport(list[0].id)
+        }
+      })
+    }
+  }, [isParent])
+
+  useEffect(() => {
+    if (selSection && isAdminOrFaculty) {
       fetch(`/api/attendance?type=students&classSectionId=${selSection}`).then(r => r.json()).then(d => {
         setStudents(Array.isArray(d) ? d : [])
       })
     }
-  }, [selSection])
+  }, [selSection, isAdminOrFaculty])
+
+  // Auto-fetch report for students/parents
+  useEffect(() => {
+    if ((isStudent || isParent) && selStudentReport) {
+      fetchStudentReport()
+    }
+  }, [selStudentReport, month, year, isStudent, isParent])
 
   useEffect(() => {
     if (selSection && viewType === "daily") fetchAttendance()
@@ -114,30 +159,36 @@ export default function AttendancePage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-800">Attendance</h1>
         <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
-          <button onClick={() => setViewType("daily")}
-            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-1.5 ${viewType === "daily" ? "bg-white text-blue-600 shadow-sm" : "text-gray-600"}`}>
-            <CalendarDays size={15} /> Daily
-          </button>
+          {isAdminOrFaculty && (
+            <button onClick={() => setViewType("daily")}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-1.5 ${viewType === "daily" ? "bg-white text-blue-600 shadow-sm" : "text-gray-600"}`}>
+              <CalendarDays size={15} /> Daily
+            </button>
+          )}
           <button onClick={() => setViewType("monthly")}
             className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-1.5 ${viewType === "monthly" ? "bg-white text-blue-600 shadow-sm" : "text-gray-600"}`}>
             <BarChart3 size={15} /> Monthly
           </button>
-          <button onClick={() => setViewType("camera")}
-            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-1.5 ${viewType === "camera" ? "bg-white text-blue-600 shadow-sm" : "text-gray-600"}`}>
-            <Camera size={15} /> Camera
-          </button>
+          {isAdminOrFaculty && (
+            <button onClick={() => setViewType("camera")}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-1.5 ${viewType === "camera" ? "bg-white text-blue-600 shadow-sm" : "text-gray-600"}`}>
+              <Camera size={15} /> Camera
+            </button>
+          )}
         </div>
       </div>
 
       <div className="flex flex-wrap items-end gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Class Section</label>
-          <select value={selSection} onChange={e => setSelSection(e.target.value)} className="input-field">
-            <option value="">Select section</option>
-            {sections.map(s => <option key={s.id} value={s.id}>{s.name} {s.program?.name ? `(${s.program.name})` : ""} - {s._count?.students || 0} students</option>)}
-          </select>
-        </div>
-        {viewType === "daily" && (
+        {isAdminOrFaculty && viewType !== "monthly" && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Class Section</label>
+            <select value={selSection} onChange={e => setSelSection(e.target.value)} className="input-field">
+              <option value="">Select section</option>
+              {sections.map(s => <option key={s.id} value={s.id}>{s.name} {s.program?.name ? `(${s.program.name})` : ""} - {s._count?.students || 0} students</option>)}
+            </select>
+          </div>
+        )}
+        {viewType === "daily" && isAdminOrFaculty && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
             <input type="date" value={selDate} onChange={e => setSelDate(e.target.value)} className="input-field" />
@@ -145,6 +196,14 @@ export default function AttendancePage() {
         )}
         {viewType === "monthly" && (
           <>
+            {isParent && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Child</label>
+                <select value={selChildId} onChange={e => { setSelChildId(e.target.value); setSelStudentReport(e.target.value) }} className="input-field">
+                  {childList.map(s => <option key={s.id} value={s.id}>{s.firstName} {s.lastName} ({s.rollNo})</option>)}
+                </select>
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
               <select value={month} onChange={e => setMonth(e.target.value)} className="input-field">
@@ -161,7 +220,7 @@ export default function AttendancePage() {
         )}
       </div>
 
-      {viewType === "daily" && selSection && (
+      {viewType === "daily" && selSection && isAdminOrFaculty && (
         <>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="stat-card"><p className="text-sm text-gray-500">Total Students</p><p className="text-2xl font-bold">{total}</p></div>
@@ -234,9 +293,9 @@ export default function AttendancePage() {
         </>
       )}
 
-      {viewType === "monthly" && selSection && (
+      {viewType === "monthly" && (isAdminOrFaculty ? selSection : selStudentReport) && (
         <>
-          {summary && (
+          {summary && isAdminOrFaculty && (
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div className="stat-card"><p className="text-sm text-gray-500">Total Records</p><p className="text-2xl font-bold">{summary.total}</p></div>
               <div className="stat-card border-l-4 border-green-500"><p className="text-sm text-gray-500">Present</p><p className="text-2xl font-bold text-green-600">{summary.present}</p></div>
@@ -248,15 +307,19 @@ export default function AttendancePage() {
             </div>
           )}
           <div className="card p-4">
-            <h3 className="font-semibold text-gray-800 mb-3">Student Report</h3>
+            <h3 className="font-semibold text-gray-800 mb-3">
+              {isStudent ? "My Attendance" : isParent ? "Child Attendance" : "Student Report"}
+            </h3>
             <div className="flex items-end gap-4">
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Select Student</label>
-                <select value={selStudentReport} onChange={e => setSelStudentReport(e.target.value)} className="input-field">
-                  <option value="">Choose student</option>
-                  {students.map(s => <option key={s.id} value={s.id}>{s.firstName} {s.lastName} ({s.rollNo})</option>)}
-                </select>
-              </div>
+              {isAdminOrFaculty && (
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Select Student</label>
+                  <select value={selStudentReport} onChange={e => setSelStudentReport(e.target.value)} className="input-field">
+                    <option value="">Choose student</option>
+                    {students.map(s => <option key={s.id} value={s.id}>{s.firstName} {s.lastName} ({s.rollNo})</option>)}
+                  </select>
+                </div>
+              )}
               <button onClick={fetchStudentReport} className="btn-primary text-sm flex items-center gap-1"><FileText size={15} /> View Report</button>
             </div>
             {studentReport && (
@@ -291,7 +354,7 @@ export default function AttendancePage() {
         </>
       )}
 
-      {viewType === "camera" && selSection && (
+      {viewType === "camera" && selSection && isAdminOrFaculty && (
         <CameraAttendance students={students} statusMap={statusMap} onMark={handleCameraMark} />
       )}
     </div>

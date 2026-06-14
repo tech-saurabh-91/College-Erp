@@ -221,6 +221,8 @@ model Student {
   program           Program              @relation(fields: [programId], references: [id])
   classSectionId    String?
   classSection      ClassSection?        @relation(fields: [classSectionId], references: [id])
+  parentId          String?
+  parent            Parent?              @relation(fields: [parentId], references: [id])
   attendance        Attendance[]
   marks             Mark[]
   feeAccounts       FeeAccount[]
@@ -990,7 +992,8 @@ model Parent {
   relation  String
   createdAt DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id])
+  user     User      @relation(fields: [userId], references: [id])
+  children Student[]
 }
 
 // ====================== MODULE 16: SETTINGS & AUDIT ======================

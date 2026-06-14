@@ -1,8 +1,35 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+
+async function canAccessStudent(studentId: string, role: string, userId: string): Promise<boolean> {
+  if (role === "ADMIN" || role === "FACULTY") return true
+  if (role === "STUDENT") {
+    const student = await prisma.student.findUnique({ where: { id: studentId }, select: { userId: true } })
+    return student?.userId === userId
+  }
+  if (role === "PARENT") {
+    const parent = await prisma.parent.findUnique({ where: { userId }, select: { id: true } })
+    if (!parent) return false
+    const student = await prisma.student.findUnique({ where: { id: studentId }, select: { parentId: true } })
+    return student?.parentId === parent.id
+  }
+  return false
+}
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
   const { id } = await params
+  const role = (session.user as any).role
+  const userId = (session.user as any).id
+
+  if (!await canAccessStudent(id, role, userId)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
   try {
     const student = await prisma.student.findUnique({
       where: { id },
@@ -16,6 +43,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const role = (session.user as any).role
+  if (role !== "ADMIN" && role !== "FACULTY") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
   const { id } = await params
   try {
     const body = await req.json()
@@ -59,6 +94,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const role = (session.user as any).role
+  if (role !== "ADMIN") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
   const { id } = await params
   try {
     const student = await prisma.student.findUnique({ where: { id } })
