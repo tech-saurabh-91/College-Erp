@@ -1,6 +1,6 @@
 "use client"
 import { useEffect, useState } from "react"
-import { Plus, X, Save, Shield, Trash2, Users, Check } from "lucide-react"
+import { Plus, Save, Shield, Trash2, X } from "lucide-react"
 import { MODULES } from "@/lib/permissions"
 
 interface Role {
@@ -21,12 +21,12 @@ export default function RolesPage() {
   const [roles, setRoles] = useState<Role[]>([])
   const [permissions, setPermissions] = useState<Permission[]>([])
   const [loading, setLoading] = useState(true)
-  const [showPermModal, setShowPermModal] = useState(false)
-  const [showCreateModal, setShowCreateModal] = useState(false)
   const [selectedRole, setSelectedRole] = useState<Role | null>(null)
-  const [permMap, setPermMap] = useState<Record<string, RolePermission>>({})
-  const [newRole, setNewRole] = useState({ name: "", description: "" })
-  const [creating, setCreating] = useState(false)
+  const [editingNew, setEditingNew] = useState(false)
+  const [roleName, setRoleName] = useState("")
+  const [roleDesc, setRoleDesc] = useState("")
+  const [readMap, setReadMap] = useState<Record<string, boolean>>({})
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => { fetchAll() }, [])
 
@@ -43,88 +43,63 @@ export default function RolesPage() {
     setLoading(false)
   }
 
-  async function createRole() {
-    if (!newRole.name.trim()) return
-    setCreating(true)
-    try {
-      await fetch("/api/roles", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newRole),
-      })
-      setShowCreateModal(false)
-      setNewRole({ name: "", description: "" })
-      fetchAll()
-    } catch { alert("Failed to create role") }
-    setCreating(false)
-  }
-
-  function openPermissions(role: Role) {
+  function loadRole(role: Role) {
     setSelectedRole(role)
-    const map: Record<string, RolePermission> = {}
-    role.permissions.forEach((rp) => {
-      map[rp.permissionId] = rp
-    })
-    setPermMap(map)
-    setShowPermModal(true)
+    setEditingNew(false)
+    setRoleName(role.name)
+    setRoleDesc(role.description || "")
+    const map: Record<string, boolean> = {}
+    role.permissions.forEach(rp => { map[rp.permissionId] = rp.canRead })
+    setReadMap(map)
   }
 
-  function selectAllModule(permId: string, checked: boolean) {
-    setPermMap((prev) => {
-      const updated = { ...prev }
-      updated[permId] = {
-        id: prev[permId]?.id || "",
-        roleId: selectedRole?.id || "",
-        permissionId: permId,
-        canCreate: checked,
-        canRead: checked,
-        canUpdate: checked,
-        canDelete: checked,
-        permission: permissions.find(p => p.id === permId)!,
-      }
-      return updated
-    })
+  function newRole() {
+    setSelectedRole(null)
+    setEditingNew(true)
+    setRoleName("")
+    setRoleDesc("")
+    setReadMap({})
   }
 
-  function togglePerm(permId: string, field: "canCreate" | "canRead" | "canUpdate" | "canDelete") {
-    setPermMap((prev) => {
-      const existing = prev[permId]
-      const updated = { ...prev }
-      if (existing?.permissionId === permId) {
-        updated[permId] = { ...existing, [field]: !existing[field] }
-      } else {
-        updated[permId] = {
-          id: "", roleId: selectedRole?.id || "", permissionId: permId,
-          canCreate: field === "canCreate" ? true : false,
-          canRead: field === "canRead" ? true : false,
-          canUpdate: field === "canUpdate" ? true : false,
-          canDelete: field === "canDelete" ? true : false,
-          permission: permissions.find(p => p.id === permId)!,
-        }
-      }
-      return updated
-    })
+  function toggleRead(permId: string) {
+    setReadMap(prev => ({ ...prev, [permId]: !prev[permId] }))
   }
 
-  async function savePermissions() {
-    if (!selectedRole) return
+  function selectAll(checked: boolean) {
+    const map: Record<string, boolean> = {}
+    permissions.forEach(p => { map[p.id] = checked })
+    setReadMap(map)
+  }
+
+  async function handleSave() {
+    if (!roleName.trim()) { alert("Enter a role name"); return }
+    setSaving(true)
     try {
-      await fetch(`/api/roles/${selectedRole.id}/permissions`, {
+      let roleId = selectedRole?.id
+      if (editingNew || !roleId) {
+        const res = await fetch("/api/roles", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: roleName.trim(), description: roleDesc.trim() }),
+        })
+        const created = await res.json()
+        roleId = created.id
+      }
+      const perms = permissions.map(p => ({
+        permissionId: p.id,
+        canRead: readMap[p.id] || false,
+        canCreate: false, canUpdate: false, canDelete: false,
+      }))
+      await fetch(`/api/roles/${roleId}/permissions`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          permissions: Object.entries(permMap).map(([permissionId, rp]) => ({
-            permissionId,
-            canCreate: rp.canCreate,
-            canRead: rp.canRead,
-            canUpdate: rp.canUpdate,
-            canDelete: rp.canDelete,
-          })),
-        }),
+        body: JSON.stringify({ permissions: perms }),
       })
-      setShowPermModal(false)
       fetchAll()
-    } catch { alert("Failed to save permissions") }
+      setEditingNew(false)
+      setSelectedRole(null)
+    } catch { alert("Failed to save") }
+    setSaving(false)
   }
 
   async function handleDelete(role: Role) {
@@ -132,148 +107,119 @@ export default function RolesPage() {
     if (!confirm(`Delete role "${role.name}"?`)) return
     try {
       await fetch(`/api/roles/${role.id}`, { method: "DELETE" })
+      if (selectedRole?.id === role.id) { setSelectedRole(null); setEditingNew(false) }
       fetchAll()
     } catch { alert("Failed to delete") }
   }
 
+  const selectedPerms = permissions.map(p => ({
+    ...p,
+    canRead: readMap[p.id] || false,
+  }))
+  const allChecked = selectedPerms.length > 0 && selectedPerms.every(p => p.canRead)
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-800">Roles & Permissions</h1>
-        <button onClick={() => setShowCreateModal(true)} className="btn-primary flex items-center gap-2">
-          <Plus size={16} /> Create Role
-        </button>
-      </div>
+      <h1 className="text-2xl font-bold text-gray-800">Role Management</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Roles List */}
+        {/* Left: Roles List */}
         <div className="card p-0 overflow-hidden">
           <div className="p-4 border-b border-gray-100 flex items-center justify-between">
             <h2 className="font-semibold text-gray-800 flex items-center gap-2"><Shield size={18} /> Roles</h2>
+            <button onClick={newRole} className="btn-primary text-xs flex items-center gap-1"><Plus size={14} /> New</button>
           </div>
           {loading ? (
             <p className="p-4 text-gray-500">Loading...</p>
+          ) : roles.length === 0 ? (
+            <p className="p-4 text-gray-500 text-sm">No roles yet. Click "New" to create one.</p>
           ) : (
             <div className="divide-y divide-gray-50">
-              {roles.map((role) => (
-                <div key={role.id} className="p-4 flex items-center justify-between hover:bg-gray-50">
+              {roles.map(role => (
+                <div key={role.id}
+                  onClick={() => loadRole(role)}
+                  className={`p-4 flex items-center justify-between hover:bg-gray-50 cursor-pointer ${selectedRole?.id === role.id ? "bg-blue-50 border-l-4 border-blue-500" : ""}`}>
                   <div>
                     <p className="font-medium text-gray-800">{role.name}</p>
-                    <p className="text-xs text-gray-500">{role.description} &middot; {role._count.assignments} users</p>
+                    <p className="text-xs text-gray-500">{role.description || "No description"} &middot; {role._count.assignments} users</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => openPermissions(role)}
-                      className="btn-secondary text-xs flex items-center gap-1"><Check size={14} /> Permissions</button>
-                    {!role.isSystem && (
-                      <button onClick={() => handleDelete(role)}
-                        className="p-1.5 hover:bg-red-50 rounded text-red-500"><Trash2 size={14} /></button>
-                    )}
-                  </div>
+                  {!role.isSystem && (
+                    <button onClick={e => { e.stopPropagation(); handleDelete(role) }}
+                      className="p-1.5 hover:bg-red-50 rounded text-red-500"><Trash2 size={14} /></button>
+                  )}
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* Permissions Preview for selected role */}
+        {/* Right: Role Editor */}
         <div className="card p-4">
-          <h2 className="font-semibold text-gray-800 flex items-center gap-2 mb-4"><Shield size={18} /> Quick Overview</h2>
-          {!selectedRole ? (
-            <p className="text-gray-500 text-sm">Click "Permissions" on a role to manage its access</p>
-          ) : (
-            <div className="space-y-3 max-h-[500px] overflow-y-auto">
-              {MODULES.map((mod) => {
-                const perm = permissions.find(p => p.module === mod.key)
-                if (!perm) return null
-                const rp = permMap[perm.id]
-                return (
-                  <div key={mod.key} className="flex items-center justify-between pb-2 border-b border-gray-50">
-                    <span className="text-sm font-medium text-gray-700">{mod.label}</span>
-                    <div className="flex gap-3 text-xs">
-                      <span className={rp?.canRead ? "text-green-600 font-medium" : "text-gray-300"}>View</span>
-                      <span className={rp?.canCreate ? "text-green-600 font-medium" : "text-gray-300"}>Create</span>
-                      <span className={rp?.canUpdate ? "text-green-600 font-medium" : "text-gray-300"}>Edit</span>
-                      <span className={rp?.canDelete ? "text-green-600 font-medium" : "text-gray-300"}>Delete</span>
-                    </div>
-                  </div>
-                )
-              })}
+          {!selectedRole && !editingNew ? (
+            <div className="text-center py-16 text-gray-400">
+              <Shield size={48} className="mx-auto mb-3 opacity-30" />
+              <p className="text-sm">Select a role from the left</p>
+              <p className="text-xs mt-1">or click "New" to create one</p>
             </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-semibold text-gray-800">
+                  {editingNew ? "New Role" : `Edit: ${selectedRole?.name}`}
+                </h2>
+                {(editingNew || selectedRole) && (
+                  <button onClick={() => { setSelectedRole(null); setEditingNew(false) }}
+                    className="p-1 hover:bg-gray-100 rounded"><X size={16} /></button>
+                )}
+              </div>
+
+              <div className="space-y-3 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Role Name</label>
+                  <input value={roleName} onChange={e => setRoleName(e.target.value)}
+                    className="input-field" placeholder="e.g. Accountant" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <input value={roleDesc} onChange={e => setRoleDesc(e.target.value)}
+                    className="input-field" placeholder="Optional" />
+                </div>
+              </div>
+
+              <div className="border-t border-gray-100 pt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-gray-700">Page Access (View)</h3>
+                  <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
+                    <input type="checkbox" checked={allChecked} onChange={() => selectAll(!allChecked)}
+                      className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600" />
+                    Select All
+                  </label>
+                </div>
+                <div className="space-y-1 max-h-[400px] overflow-y-auto">
+                  {selectedPerms.map(p => (
+                    <div key={p.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50">
+                      <span className="text-sm text-gray-700">{p.name}</span>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input type="checkbox" checked={p.canRead}
+                          onChange={() => toggleRead(p.id)}
+                          className="w-4 h-4 rounded border-gray-300 text-blue-600" />
+                        <span className="text-xs text-gray-500">View</span>
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 mt-4">
+                <button onClick={handleSave} disabled={saving || !roleName.trim()}
+                  className="btn-primary flex items-center gap-2">
+                  <Save size={15} /> {saving ? "Saving..." : editingNew ? "Create Role" : "Save Changes"}
+                </button>
+              </div>
+            </>
           )}
         </div>
       </div>
-
-      {/* Permissions Modal */}
-      {showPermModal && selectedRole && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowPermModal(false)}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-5 border-b border-gray-100 sticky top-0 bg-white z-10">
-              <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                <Shield size={18} /> {selectedRole.name} - Permissions
-              </h2>
-              <button onClick={() => setShowPermModal(false)} className="p-1 hover:bg-gray-100 rounded"><X size={18} /></button>
-            </div>
-            <div className="p-5 space-y-2">
-              {MODULES.map((mod) => {
-                const perm = permissions.find(p => p.module === mod.key)
-                if (!perm) return null
-                const rp = permMap[perm.id]
-                const allChecked = rp?.canRead && rp?.canCreate && rp?.canUpdate && rp?.canDelete
-                return (
-                  <div key={mod.key} className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 border border-gray-100">
-                    <div className="flex items-center gap-3 w-1/3">
-                      <input type="checkbox" checked={!!allChecked}
-                        onChange={() => selectAllModule(perm.id, !allChecked)}
-                        className="w-3.5 h-3.5 rounded border-gray-400 text-blue-600" title="Select all" />
-                      <span className="text-sm font-medium text-gray-700">{mod.label}</span>
-                    </div>
-                    <div className="flex gap-4">
-                      {(["canRead", "canCreate", "canUpdate", "canDelete"] as const).map((field) => (
-                        <label key={field} className="flex items-center gap-1.5 cursor-pointer">
-                          <input type="checkbox" checked={rp?.[field] || false}
-                            onChange={() => togglePerm(perm.id, field)}
-                            className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                          <span className="text-xs text-gray-600 capitalize">{field.replace("can", "")}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-            <div className="flex justify-end gap-3 p-5 border-t border-gray-100">
-              <button onClick={() => setShowPermModal(false)} className="btn-secondary">Cancel</button>
-              <button onClick={savePermissions} className="btn-primary flex items-center gap-2"><Save size={15} /> Save Permissions</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Create Role Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowCreateModal(false)}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-5 border-b border-gray-100">
-              <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2"><Plus size={18} /> Create Role</h2>
-              <button onClick={() => setShowCreateModal(false)} className="p-1 hover:bg-gray-100 rounded"><X size={18} /></button>
-            </div>
-            <div className="p-5 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Role Name</label>
-                <input value={newRole.name} onChange={e => setNewRole({ ...newRole, name: e.target.value })} className="input-field" placeholder="e.g. Accountant" autoFocus />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <input value={newRole.description} onChange={e => setNewRole({ ...newRole, description: e.target.value })} className="input-field" placeholder="Optional description" />
-              </div>
-            </div>
-            <div className="flex items-center justify-end gap-3 p-5 border-t border-gray-100">
-              <button onClick={() => { setShowCreateModal(false); setNewRole({ name: "", description: "" }) }} className="btn-secondary text-sm">Cancel</button>
-              <button onClick={createRole} disabled={creating || !newRole.name.trim()} className="btn-primary text-sm">{creating ? "Creating..." : "Create"}</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

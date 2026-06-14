@@ -102,65 +102,17 @@ async function main() {
   const pw = await bcrypt.hash("password123", 10)
 
   // ===================== ROLES =====================
+  // Only one default role: Admin with full access
+  // User will create other roles manually via the Roles page
   const adminRole = await prisma.role.create({
     data: { name: "Admin", description: "Full system access", isSystem: true },
   })
-  const facultyRole = await prisma.role.create({
-    data: { name: "Faculty", description: "Academic staff access", isSystem: true },
-  })
-  const studentRole = await prisma.role.create({
-    data: { name: "Student", description: "Student self-service", isSystem: true },
-  })
-  const parentRole = await prisma.role.create({
-    data: { name: "Parent", description: "Parent/guardian view access", isSystem: true },
-  })
-
-  // Admin: all permissions
   for (const perm of permissions) {
     await prisma.rolePermission.create({
       data: { roleId: adminRole.id, permissionId: perm.id, canCreate: true, canRead: true, canUpdate: true, canDelete: true },
     })
   }
-
-  // Faculty: read + write on academic modules
-  const facultyModules = ["student", "curriculum", "examination", "attendance", "fee", "timetable", "report", "faculty", "communication", "portal"]
-  for (const perm of permissions) {
-    const isFacultyMod = facultyModules.includes(perm.module)
-    await prisma.rolePermission.create({
-      data: {
-        roleId: facultyRole.id, permissionId: perm.id,
-        canRead: isFacultyMod,
-        canCreate: isFacultyMod,
-        canUpdate: isFacultyMod,
-        canDelete: perm.module === "attendance",
-      },
-    })
-  }
-
-  // Student: read only on self-service modules
-  const studentModules = ["student", "attendance", "examination", "fee", "portal"]
-  for (const perm of permissions) {
-    await prisma.rolePermission.create({
-      data: {
-        roleId: studentRole.id, permissionId: perm.id,
-        canRead: studentModules.includes(perm.module),
-        canCreate: false, canUpdate: false, canDelete: false,
-      },
-    })
-  }
-
-  // Parent: read only on child-related modules
-  const parentModules = ["student", "attendance", "fee", "examination", "portal"]
-  for (const perm of permissions) {
-    await prisma.rolePermission.create({
-      data: {
-        roleId: parentRole.id, permissionId: perm.id,
-        canRead: parentModules.includes(perm.module),
-        canCreate: false, canUpdate: false, canDelete: false,
-      },
-    })
-  }
-  console.log("✅ Created roles with permissions")
+  console.log("✅ Created Admin role with all permissions")
 
   // ===================== USERS =====================
   const adminUser = await prisma.user.create({
@@ -171,17 +123,14 @@ async function main() {
   const facultyUser1 = await prisma.user.create({
     data: { email: "faculty1@college.edu", password: pw, name: "Dr. Rajesh Sharma", role: "FACULTY", phone: "+91-9876543211", isActive: true },
   })
-  await prisma.roleAssignment.create({ data: { userId: facultyUser1.id, roleId: facultyRole.id } })
 
   const facultyUser2 = await prisma.user.create({
     data: { email: "faculty2@college.edu", password: pw, name: "Prof. Priya Patel", role: "FACULTY", phone: "+91-9876543212", isActive: true },
   })
-  await prisma.roleAssignment.create({ data: { userId: facultyUser2.id, roleId: facultyRole.id } })
 
   const facultyUser3 = await prisma.user.create({
     data: { email: "faculty3@college.edu", password: pw, name: "Dr. Amit Verma", role: "FACULTY", phone: "+91-9876543213", isActive: true },
   })
-  await prisma.roleAssignment.create({ data: { userId: facultyUser3.id, roleId: facultyRole.id } })
 
   const studentNames = [
     ["Aarav", "Singh"], ["Diya", "Patel"], ["Arjun", "Sharma"], ["Ananya", "Verma"], ["Rohan", "Gupta"],
@@ -195,19 +144,15 @@ async function main() {
     const u = await prisma.user.create({
       data: { email, password: pw, name: `${first} ${last}`, role: "STUDENT", phone: `+91-98765432${10 + i}`, isActive: true },
     })
-    await prisma.roleAssignment.create({ data: { userId: u.id, roleId: studentRole.id } })
     studentUsers.push(u)
   }
 
   const parentUser1 = await prisma.user.create({
     data: { email: "parent1@college.edu", password: pw, name: "Sunita Singh", role: "PARENT", phone: "+91-9876543301", isActive: true },
   })
-  await prisma.roleAssignment.create({ data: { userId: parentUser1.id, roleId: parentRole.id } })
-
   const parentUser2 = await prisma.user.create({
     data: { email: "parent2@college.edu", password: pw, name: "Rajesh Patel", role: "PARENT", phone: "+91-9876543302", isActive: true },
   })
-  await prisma.roleAssignment.create({ data: { userId: parentUser2.id, roleId: parentRole.id } })
 
   console.log("✅ Created users")
 
