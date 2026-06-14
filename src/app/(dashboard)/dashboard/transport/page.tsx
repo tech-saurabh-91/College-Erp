@@ -1,6 +1,8 @@
 "use client"
 import { useEffect, useState } from "react"
 import { Plus, X, Search, Edit, Trash2, Bus, MapPin, Users, CreditCard, User, Phone, IdCard, Calendar, CheckCircle, XCircle } from "lucide-react"
+import { useSession } from "next-auth/react"
+import { usePermissions } from "@/lib/permissions"
 
 type TabType = "routes" | "vehicles" | "drivers" | "passes"
 interface TransportRoute { id: string; name: string; startPoint: string; endPoint: string; distance?: number; fee: number; capacity: number; isActive: boolean; vehicles?: TransportVehicle[] }
@@ -26,6 +28,8 @@ export default function TransportPage() {
   const [showModal, setShowModal] = useState(false)
   const [modalType, setModalType] = useState<"route" | "vehicle" | "driver" | "pass">("route")
   const [editingItem, setEditingItem] = useState<any>(null)
+  const { data: session } = useSession()
+  const { can } = usePermissions(session)
 
   useEffect(() => { fetchData() }, [activeTab])
 
@@ -44,10 +48,10 @@ export default function TransportPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-800">Transport Management</h1>
         <div className="flex gap-2">
-          {activeTab === "routes" && <button onClick={() => { setEditingItem(null); setModalType("route"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Add Route</button>}
-          {activeTab === "vehicles" && <button onClick={() => { setEditingItem(null); setModalType("vehicle"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Add Vehicle</button>}
-          {activeTab === "drivers" && <button onClick={() => { setEditingItem(null); setModalType("driver"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Add Driver</button>}
-          {activeTab === "passes" && <button onClick={() => { setModalType("pass"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Issue Pass</button>}
+          {activeTab === "routes" && can('transport', 'create') && <button onClick={() => { setEditingItem(null); setModalType("route"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Add Route</button>}
+          {activeTab === "vehicles" && can('transport', 'create') && <button onClick={() => { setEditingItem(null); setModalType("vehicle"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Add Vehicle</button>}
+          {activeTab === "drivers" && can('transport', 'create') && <button onClick={() => { setEditingItem(null); setModalType("driver"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Add Driver</button>}
+          {activeTab === "passes" && can('transport', 'create') && <button onClick={() => { setModalType("pass"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Issue Pass</button>}
         </div>
       </div>
 
@@ -60,9 +64,9 @@ export default function TransportPage() {
         ))}
       </div>
 
-      {activeTab === "routes" && <RoutesView data={data} onRefresh={fetchData} setShowModal={setShowModal} setEditingItem={setEditingItem} setModalType={setModalType} />}
-      {activeTab === "vehicles" && <VehiclesView data={data} onRefresh={fetchData} setShowModal={setShowModal} setEditingItem={setEditingItem} setModalType={setModalType} />}
-      {activeTab === "drivers" && <DriversView data={data} onRefresh={fetchData} setShowModal={setShowModal} setEditingItem={setEditingItem} setModalType={setModalType} />}
+      {activeTab === "routes" && <RoutesView data={data} onRefresh={fetchData} setShowModal={setShowModal} setEditingItem={setEditingItem} setModalType={setModalType} can={can} />}
+      {activeTab === "vehicles" && <VehiclesView data={data} onRefresh={fetchData} setShowModal={setShowModal} setEditingItem={setEditingItem} setModalType={setModalType} can={can} />}
+      {activeTab === "drivers" && <DriversView data={data} onRefresh={fetchData} setShowModal={setShowModal} setEditingItem={setEditingItem} setModalType={setModalType} can={can} />}
       {activeTab === "passes" && <PassesView data={data} onRefresh={fetchData} />}
 
       {showModal && (
@@ -85,7 +89,7 @@ export default function TransportPage() {
   )
 }
 
-function RoutesView({ data, onRefresh, setShowModal, setEditingItem, setModalType }: any) {
+function RoutesView({ data, onRefresh, setShowModal, setEditingItem, setModalType, can }: any) {
   const [search, setSearch] = useState("")
   const filtered = data.filter((r: TransportRoute) =>
     !search || r.name?.toLowerCase().includes(search.toLowerCase()) || r.startPoint?.toLowerCase().includes(search.toLowerCase()) || r.endPoint?.toLowerCase().includes(search.toLowerCase())
@@ -112,8 +116,8 @@ function RoutesView({ data, onRefresh, setShowModal, setEditingItem, setModalTyp
                 <p className="text-xs text-gray-500">{r.startPoint} → {r.endPoint}</p>
               </div>
               <div className="flex gap-1">
-                <button onClick={() => { setEditingItem(r); setModalType("route"); setShowModal(true) }} className="p-1 hover:bg-blue-50 rounded text-blue-600"><Edit size={14} /></button>
-                <button onClick={() => handleDelete(r.id)} className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 size={14} /></button>
+                {can('transport', 'update') && <button onClick={() => { setEditingItem(r); setModalType("route"); setShowModal(true) }} className="p-1 hover:bg-blue-50 rounded text-blue-600"><Edit size={14} /></button>}
+                {can('transport', 'delete') && <button onClick={() => handleDelete(r.id)} className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 size={14} /></button>}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2 text-sm">
@@ -173,7 +177,7 @@ function RouteForm({ edit, onClose }: { edit: any; onClose: () => void }) {
   )
 }
 
-function VehiclesView({ data, onRefresh, setShowModal, setEditingItem, setModalType }: any) {
+function VehiclesView({ data, onRefresh, setShowModal, setEditingItem, setModalType, can }: any) {
   const [search, setSearch] = useState("")
   const filtered = data.filter((v: TransportVehicle) =>
     !search || v.vehicleNo?.toLowerCase().includes(search.toLowerCase()) || v.route?.name?.toLowerCase().includes(search.toLowerCase()) || v.driver?.name?.toLowerCase().includes(search.toLowerCase())
@@ -213,8 +217,8 @@ function VehiclesView({ data, onRefresh, setShowModal, setEditingItem, setModalT
                 <td className="table-cell"><span className={`badge ${v.isActive ? "badge-success" : "badge-danger"}`}>{v.isActive ? "Active" : "Inactive"}</span></td>
                 <td className="table-cell">
                   <div className="flex gap-1">
-                    <button onClick={() => { setEditingItem(v); setModalType("vehicle"); setShowModal(true) }} className="p-1 hover:bg-blue-50 rounded text-blue-600"><Edit size={14} /></button>
-                    <button onClick={() => handleDelete(v.id)} className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 size={14} /></button>
+                    {can('transport', 'update') && <button onClick={() => { setEditingItem(v); setModalType("vehicle"); setShowModal(true) }} className="p-1 hover:bg-blue-50 rounded text-blue-600"><Edit size={14} /></button>}
+                    {can('transport', 'delete') && <button onClick={() => handleDelete(v.id)} className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 size={14} /></button>}
                   </div>
                 </td>
               </tr>
@@ -288,7 +292,7 @@ function VehicleForm({ edit, onClose }: { edit: any; onClose: () => void }) {
   )
 }
 
-function DriversView({ data, onRefresh, setShowModal, setEditingItem, setModalType }: any) {
+function DriversView({ data, onRefresh, setShowModal, setEditingItem, setModalType, can }: any) {
   const [search, setSearch] = useState("")
   const filtered = data.filter((d: TransportDriver) =>
     !search || d.name?.toLowerCase().includes(search.toLowerCase()) || d.phone?.includes(search) || d.licenseNo?.toLowerCase().includes(search.toLowerCase())
@@ -320,8 +324,8 @@ function DriversView({ data, onRefresh, setShowModal, setEditingItem, setModalTy
                 </div>
               </div>
               <div className="flex gap-1">
-                <button onClick={() => { setEditingItem(d); setModalType("driver"); setShowModal(true) }} className="p-1 hover:bg-blue-50 rounded text-blue-600"><Edit size={14} /></button>
-                <button onClick={() => handleDelete(d.id)} className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 size={14} /></button>
+                {can('transport', 'update') && <button onClick={() => { setEditingItem(d); setModalType("driver"); setShowModal(true) }} className="p-1 hover:bg-blue-50 rounded text-blue-600"><Edit size={14} /></button>}
+                {can('transport', 'delete') && <button onClick={() => handleDelete(d.id)} className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 size={14} /></button>}
               </div>
             </div>
             <div className="space-y-2 text-sm">

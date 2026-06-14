@@ -1,6 +1,8 @@
 "use client"
 import { useEffect, useState } from "react"
 import { Plus, X, Search, Edit, Trash2, DollarSign, CreditCard, BookOpen, TrendingUp, TrendingDown, Wallet, Landmark, Scale, Pencil } from "lucide-react"
+import { useSession } from "next-auth/react"
+import { usePermissions } from "@/lib/permissions"
 
 type TabType = "ledger" | "voucher" | "budget" | "balance"
 interface LedgerAccount { id: string; code: string; name: string; type: string; balance: number; isActive: boolean }
@@ -29,6 +31,8 @@ export default function AccountsPage() {
   const [showModal, setShowModal] = useState(false)
   const [modalType, setModalType] = useState<"ledger" | "voucher" | "budget">("ledger")
   const [editingItem, setEditingItem] = useState<any>(null)
+  const { data: session } = useSession()
+  const { can } = usePermissions(session)
 
   useEffect(() => { fetchData() }, [activeTab])
 
@@ -46,9 +50,9 @@ export default function AccountsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-800">Accounts</h1>
-        <button onClick={() => { setEditingItem(null); setModalType(activeTab === "voucher" ? "voucher" : activeTab === "budget" ? "budget" : "ledger"); setShowModal(true) }} className="btn-primary flex items-center gap-2">
+        {can('account', 'create') && <button onClick={() => { setEditingItem(null); setModalType(activeTab === "voucher" ? "voucher" : activeTab === "budget" ? "budget" : "ledger"); setShowModal(true) }} className="btn-primary flex items-center gap-2">
           <Plus size={16} /> {activeTab === "ledger" ? "Add Account" : activeTab === "voucher" ? "New Voucher" : activeTab === "budget" ? "Add Budget" : ""}
-        </button>
+        </button>}
       </div>
 
       <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit">
@@ -60,9 +64,9 @@ export default function AccountsPage() {
         ))}
       </div>
 
-      {activeTab === "ledger" && <LedgerView data={data} onRefresh={fetchData} setShowModal={setShowModal} setEditingItem={setEditingItem} setModalType={setModalType} />}
-      {activeTab === "voucher" && <VoucherView data={data} onRefresh={fetchData} setShowModal={setShowModal} setEditingItem={setEditingItem} setModalType={setModalType} />}
-      {activeTab === "budget" && <BudgetView data={data} onRefresh={fetchData} setShowModal={setShowModal} setEditingItem={setEditingItem} setModalType={setModalType} />}
+      {activeTab === "ledger" && <LedgerView data={data} onRefresh={fetchData} setShowModal={setShowModal} setEditingItem={setEditingItem} setModalType={setModalType} can={can} />}
+      {activeTab === "voucher" && <VoucherView data={data} onRefresh={fetchData} setShowModal={setShowModal} setEditingItem={setEditingItem} setModalType={setModalType} can={can} />}
+      {activeTab === "budget" && <BudgetView data={data} onRefresh={fetchData} setShowModal={setShowModal} setEditingItem={setEditingItem} setModalType={setModalType} can={can} />}
       {activeTab === "balance" && <BalanceSheetView data={data} />}
 
       {showModal && (
@@ -75,7 +79,7 @@ export default function AccountsPage() {
               <button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-100 rounded"><X size={18} /></button>
             </div>
             {modalType === "ledger" && <LedgerForm edit={editingItem} onClose={() => { setShowModal(false); fetchData() }} />}
-            {modalType === "voucher" && <VoucherForm onClose={() => { setShowModal(false); fetchData() }} />}
+            {modalType === "voucher" && <VoucherForm onClose={() => { setShowModal(false); fetchData() }} can={can} />}
             {modalType === "budget" && <BudgetForm edit={editingItem} onClose={() => { setShowModal(false); fetchData() }} />}
           </div>
         </div>
@@ -84,7 +88,7 @@ export default function AccountsPage() {
   )
 }
 
-function LedgerView({ data, onRefresh, setShowModal, setEditingItem, setModalType }: any) {
+function LedgerView({ data, onRefresh, setShowModal, setEditingItem, setModalType, can }: any) {
   const [search, setSearch] = useState("")
   const filtered = data.filter((a: LedgerAccount) =>
     !search || a.name?.toLowerCase().includes(search.toLowerCase()) || a.code?.toLowerCase().includes(search.toLowerCase())
@@ -125,8 +129,8 @@ function LedgerView({ data, onRefresh, setShowModal, setEditingItem, setModalTyp
                 <td className={`table-cell font-semibold ${(a.balance || 0) >= 0 ? "text-green-600" : "text-red-600"}`}>₹{(a.balance || 0).toLocaleString()}</td>
                 <td className="table-cell">
                   <div className="flex gap-1">
-                    <button onClick={() => { setEditingItem(a); setModalType("ledger"); setShowModal(true) }} className="p-1 hover:bg-blue-50 rounded text-blue-600"><Edit size={14} /></button>
-                    <button onClick={() => handleDelete(a.id)} className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 size={14} /></button>
+                    {can('account', 'update') && <button onClick={() => { setEditingItem(a); setModalType("ledger"); setShowModal(true) }} className="p-1 hover:bg-blue-50 rounded text-blue-600"><Edit size={14} /></button>}
+                    {can('account', 'delete') && <button onClick={() => handleDelete(a.id)} className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 size={14} /></button>}
                   </div>
                 </td>
               </tr>
@@ -182,7 +186,7 @@ function LedgerForm({ edit, onClose }: { edit: any; onClose: () => void }) {
   )
 }
 
-function VoucherView({ data, onRefresh, setShowModal, setEditingItem, setModalType }: any) {
+function VoucherView({ data, onRefresh, setShowModal, setEditingItem, setModalType, can }: any) {
   const [search, setSearch] = useState("")
   const filtered = data.filter((v: Voucher) =>
     !search || v.voucherNo?.toLowerCase().includes(search.toLowerCase()) || v.description?.toLowerCase().includes(search.toLowerCase())
@@ -221,7 +225,7 @@ function VoucherView({ data, onRefresh, setShowModal, setEditingItem, setModalTy
                 <td className="table-cell font-semibold">₹{(v.amount || 0).toLocaleString()}</td>
                 <td className="table-cell"><span className={`badge ${typeColors[v.status] || "badge-default"}`}>{v.status}</span></td>
                 <td className="table-cell">
-                  <button onClick={() => handleDelete(v.id)} className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 size={14} /></button>
+                  {can('account', 'delete') && <button onClick={() => handleDelete(v.id)} className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 size={14} /></button>}
                 </td>
               </tr>
             ))}
@@ -233,7 +237,7 @@ function VoucherView({ data, onRefresh, setShowModal, setEditingItem, setModalTy
   )
 }
 
-function VoucherForm({ onClose }: { onClose: () => void }) {
+function VoucherForm({ onClose, can }: { onClose: () => void; can: any }) {
   const [accounts, setAccounts] = useState<LedgerAccount[]>([])
   const [form, setForm] = useState({ voucherType: "PAYMENT", date: new Date().toISOString().split("T")[0], description: "", amount: "", createdBy: "admin" })
   const [entries, setEntries] = useState([{ accountId: "", debit: "", credit: "", narration: "" }])
@@ -282,7 +286,7 @@ function VoucherForm({ onClose }: { onClose: () => void }) {
       <div className="border rounded-lg p-4 space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-gray-700">Ledger Entries</h3>
-          <button type="button" onClick={addEntry} className="btn-secondary text-xs flex items-center gap-1"><Plus size={12} /> Add Entry</button>
+          {can('account', 'create') && <button type="button" onClick={addEntry} className="btn-secondary text-xs flex items-center gap-1"><Plus size={12} /> Add Entry</button>}
         </div>
         {entries.map((entry, i) => (
           <div key={i} className="grid grid-cols-5 gap-2 items-end p-2 bg-gray-50 rounded">
@@ -315,7 +319,7 @@ function VoucherForm({ onClose }: { onClose: () => void }) {
   )
 }
 
-function BudgetView({ data, onRefresh, setShowModal, setEditingItem, setModalType }: any) {
+function BudgetView({ data, onRefresh, setShowModal, setEditingItem, setModalType, can }: any) {
   const [search, setSearch] = useState("")
   const filtered = data.filter((b: BudgetPlan) =>
     !search || b.category?.toLowerCase().includes(search.toLowerCase()) || b.fiscalYear?.includes(search)
@@ -370,8 +374,8 @@ function BudgetView({ data, onRefresh, setShowModal, setEditingItem, setModalTyp
                   </td>
                   <td className="table-cell">
                     <div className="flex gap-1">
-                      <button onClick={() => { setEditingItem(b); setModalType("budget"); setShowModal(true) }} className="p-1 hover:bg-blue-50 rounded text-blue-600"><Edit size={14} /></button>
-                      <button onClick={() => handleDelete(b.id)} className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 size={14} /></button>
+                      {can('account', 'update') && <button onClick={() => { setEditingItem(b); setModalType("budget"); setShowModal(true) }} className="p-1 hover:bg-blue-50 rounded text-blue-600"><Edit size={14} /></button>}
+                      {can('account', 'delete') && <button onClick={() => handleDelete(b.id)} className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 size={14} /></button>}
                     </div>
                   </td>
                 </tr>

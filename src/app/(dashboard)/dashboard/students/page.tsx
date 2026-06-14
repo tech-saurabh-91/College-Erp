@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react"
 import { Plus, Search, X, Edit, Trash2, Eye } from "lucide-react"
 import { useSession } from "next-auth/react"
+import { usePermissions } from "@/lib/permissions"
 
 interface Program { id: string; code: string; name: string }
 interface ClassSection { id: string; name: string; program?: Program; semester: number; section: string }
@@ -20,8 +21,8 @@ const statusColors: Record<string, string> = {
 
 export default function StudentsPage() {
   const { data: session } = useSession()
+  const { can } = usePermissions(session)
   const role = (session?.user as any)?.role
-  const isAdminOrFaculty = role === "ADMIN" || role === "FACULTY"
   const isStudent = role === "STUDENT"
   const isParent = role === "PARENT"
 
@@ -74,7 +75,7 @@ export default function StudentsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-800">Student Information</h1>
-        {isAdminOrFaculty && (
+        {can('student', 'create') && (
           <button onClick={() => { setEditingStudent(null); setShowModal(true) }} className="btn-primary flex items-center gap-2">
             <Plus size={16} /> Add Student
           </button>
@@ -126,14 +127,15 @@ export default function StudentsPage() {
                     <td className="table-cell"><span className={`badge ${statusColors[s.status] || "badge-default"}`}>{s.status}</span></td>
                     <td className="table-cell">
                       <div className="flex items-center gap-2">
-                        {isAdminOrFaculty ? (
-                          <>
-                            <button onClick={() => { setEditingStudent(s); setShowModal(true) }}
-                              className="p-1.5 hover:bg-blue-50 rounded text-blue-600"><Edit size={15} /></button>
-                            <button onClick={() => handleDelete(s.id)}
-                              className="p-1.5 hover:bg-red-50 rounded text-red-600"><Trash2 size={15} /></button>
-                          </>
-                        ) : (
+                        {can('student', 'update') && (
+                          <button onClick={() => { setEditingStudent(s); setShowModal(true) }}
+                            className="p-1.5 hover:bg-blue-50 rounded text-blue-600"><Edit size={15} /></button>
+                        )}
+                        {can('student', 'delete') && (
+                          <button onClick={() => handleDelete(s.id)}
+                            className="p-1.5 hover:bg-red-50 rounded text-red-600"><Trash2 size={15} /></button>
+                        )}
+                        {!can('student', 'update') && !can('student', 'delete') && (
                           <span className="text-xs text-gray-400">View only</span>
                         )}
                       </div>

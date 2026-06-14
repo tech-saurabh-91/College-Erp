@@ -1,5 +1,7 @@
 "use client"
 import { useEffect, useState } from "react"
+import { useSession } from "next-auth/react"
+import { usePermissions } from "@/lib/permissions"
 import { Plus, X, Search, Edit, Trash2, Building2, BedDouble, Users, UtensilsCrossed, LogIn, LogOut, Home, UserCheck, DoorOpen, ClipboardList } from "lucide-react"
 
 type TabType = "rooms" | "allocations" | "mess" | "visitors"
@@ -30,6 +32,8 @@ export default function HostelPage() {
   const [showModal, setShowModal] = useState(false)
   const [modalType, setModalType] = useState<"room" | "allocate" | "mess" | "visitor">("room")
   const [editingItem, setEditingItem] = useState<any>(null)
+  const { data: session } = useSession()
+  const { can } = usePermissions(session)
 
   useEffect(() => { fetchData() }, [activeTab])
 
@@ -50,10 +54,10 @@ export default function HostelPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-800">Hostel Management</h1>
         <div className="flex gap-2">
-          {activeTab === "rooms" && <button onClick={() => { setEditingItem(null); setModalType("room"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Add Room</button>}
-          {activeTab === "allocations" && <button onClick={() => { setModalType("allocate"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Allocate Room</button>}
-          {activeTab === "mess" && <button onClick={() => { setEditingItem(null); setModalType("mess"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Add Menu Item</button>}
-          {activeTab === "visitors" && <button onClick={() => { setModalType("visitor"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Log Visitor</button>}
+          {activeTab === "rooms" && can('hostel', 'create') && <button onClick={() => { setEditingItem(null); setModalType("room"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Add Room</button>}
+          {activeTab === "allocations" && can('hostel', 'create') && <button onClick={() => { setModalType("allocate"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Allocate Room</button>}
+          {activeTab === "mess" && can('hostel', 'create') && <button onClick={() => { setEditingItem(null); setModalType("mess"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Add Menu Item</button>}
+          {activeTab === "visitors" && can('hostel', 'create') && <button onClick={() => { setModalType("visitor"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Log Visitor</button>}
         </div>
       </div>
 
@@ -66,10 +70,10 @@ export default function HostelPage() {
         ))}
       </div>
 
-      {activeTab === "rooms" && <RoomsView data={data} onRefresh={fetchData} setShowModal={setShowModal} setEditingItem={setEditingItem} setModalType={setModalType} />}
+      {activeTab === "rooms" && <RoomsView data={data} onRefresh={fetchData} setShowModal={setShowModal} setEditingItem={setEditingItem} setModalType={setModalType} can={can} moduleKey="hostel" />}
       {activeTab === "allocations" && <AllocationsView data={data} onRefresh={fetchData} setShowModal={setShowModal} setModalType={setModalType} />}
-      {activeTab === "mess" && <MessView data={data} onRefresh={fetchData} setShowModal={setShowModal} setEditingItem={setEditingItem} setModalType={setModalType} />}
-      {activeTab === "visitors" && <VisitorsView data={data} onRefresh={fetchData} setShowModal={setShowModal} setModalType={setModalType} />}
+      {activeTab === "mess" && <MessView data={data} onRefresh={fetchData} setShowModal={setShowModal} setEditingItem={setEditingItem} setModalType={setModalType} can={can} moduleKey="hostel" />}
+      {activeTab === "visitors" && <VisitorsView data={data} onRefresh={fetchData} setShowModal={setShowModal} setModalType={setModalType} can={can} moduleKey="hostel" />}
 
       {showModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
@@ -91,7 +95,7 @@ export default function HostelPage() {
   )
 }
 
-function RoomsView({ data, onRefresh, setShowModal, setEditingItem, setModalType }: any) {
+function RoomsView({ data, onRefresh, setShowModal, setEditingItem, setModalType, can, moduleKey }: any) {
   const [search, setSearch] = useState("")
   const [hostelFilter, setHostelFilter] = useState("")
   const hostelMap = new Map<string, Hostel>()
@@ -133,8 +137,8 @@ function RoomsView({ data, onRefresh, setShowModal, setEditingItem, setModalType
                   <p className="text-xs text-gray-500">{r.hostel?.name}</p>
                 </div>
                 <div className="flex gap-1">
-                  <button onClick={() => { setEditingItem(r); setModalType("room"); setShowModal(true) }} className="p-1 hover:bg-blue-50 rounded text-blue-600"><Edit size={14} /></button>
-                  <button onClick={() => handleDelete(r.id)} className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 size={14} /></button>
+                  {can(moduleKey, 'update') && <button onClick={() => { setEditingItem(r); setModalType("room"); setShowModal(true) }} className="p-1 hover:bg-blue-50 rounded text-blue-600"><Edit size={14} /></button>}
+                  {can(moduleKey, 'delete') && <button onClick={() => handleDelete(r.id)} className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 size={14} /></button>}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2 text-sm">
@@ -320,7 +324,7 @@ function AllocateForm({ onClose }: { onClose: () => void }) {
   )
 }
 
-function MessView({ data, onRefresh, setShowModal, setEditingItem, setModalType }: any) {
+function MessView({ data, onRefresh, setShowModal, setEditingItem, setModalType, can, moduleKey }: any) {
   const [hostelFilter, setHostelFilter] = useState("")
   const hostelIds = [...new Set(data.map((m: MessMenu) => m.hostelId).filter(Boolean))] as string[]
 
@@ -354,8 +358,8 @@ function MessView({ data, onRefresh, setShowModal, setEditingItem, setModalType 
                       <div className="flex items-center justify-between">
                         <p className="text-sm text-gray-700">{item.items}</p>
                         <div className="flex gap-1">
-                          <button onClick={() => { setEditingItem(item); setModalType("mess"); setShowModal(true) }} className="p-1 hover:bg-blue-50 rounded text-blue-600"><Edit size={12} /></button>
-                          <button onClick={() => handleDelete(item.id)} className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 size={12} /></button>
+                          {can(moduleKey, 'update') && <button onClick={() => { setEditingItem(item); setModalType("mess"); setShowModal(true) }} className="p-1 hover:bg-blue-50 rounded text-blue-600"><Edit size={12} /></button>}
+                          {can(moduleKey, 'delete') && <button onClick={() => handleDelete(item.id)} className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 size={12} /></button>}
                         </div>
                       </div>
                     ) : <p className="text-xs text-gray-400 italic">Not set</p>}
@@ -421,7 +425,7 @@ function MessForm({ edit, onClose }: { edit: any; onClose: () => void }) {
   )
 }
 
-function VisitorsView({ data, onRefresh, setShowModal, setModalType }: any) {
+function VisitorsView({ data, onRefresh, setShowModal, setModalType, can, moduleKey }: any) {
   const [search, setSearch] = useState("")
   const filtered = data.filter((v: Visitor) =>
     !search || v.visitorName?.toLowerCase().includes(search.toLowerCase()) || v.student?.firstName?.toLowerCase().includes(search.toLowerCase()) || v.student?.rollNo?.includes(search)

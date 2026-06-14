@@ -1,5 +1,7 @@
 "use client"
 import { useEffect, useState } from "react"
+import { useSession } from "next-auth/react"
+import { usePermissions } from "@/lib/permissions"
 import { Plus, X, Search, Edit, Trash2, DollarSign, CreditCard, AlertTriangle, Download, Send, Receipt } from "lucide-react"
 
 type TabType = "structures" | "collections" | "dues" | "receipts"
@@ -29,6 +31,8 @@ export default function FeesPage() {
   const [modalType, setModalType] = useState<"structure" | "account" | "payment">("structure")
   const [editingItem, setEditingItem] = useState<any>(null)
   const [stats, setStats] = useState<any>(null)
+  const { data: session } = useSession()
+  const { can } = usePermissions(session)
 
   useEffect(() => { fetchData(); fetchStats() }, [activeTab])
 
@@ -57,9 +61,9 @@ export default function FeesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-800">Fee Management</h1>
-        <button onClick={() => { setEditingItem(null); setModalType(activeTab === "structures" ? "structure" : activeTab === "collections" ? "account" : "payment"); setShowModal(true) }} className="btn-primary flex items-center gap-2">
+        {can('fee', 'create') && <button onClick={() => { setEditingItem(null); setModalType(activeTab === "structures" ? "structure" : activeTab === "collections" ? "account" : "payment"); setShowModal(true) }} className="btn-primary flex items-center gap-2">
           <Plus size={16} /> {activeTab === "structures" ? "Add Structure" : activeTab === "collections" ? "Add Account" : activeTab === "receipts" ? "Record Payment" : ""}
-        </button>
+        </button>}
       </div>
 
       {stats && (
@@ -80,7 +84,7 @@ export default function FeesPage() {
         ))}
       </div>
 
-      {activeTab === "structures" && <StructuresView data={data} onRefresh={fetchData} setShowModal={setShowModal} setEditingItem={setEditingItem} setModalType={setModalType} />}
+      {activeTab === "structures" && <StructuresView data={data} onRefresh={fetchData} setShowModal={setShowModal} setEditingItem={setEditingItem} setModalType={setModalType} can={can} moduleKey="fee" />}
       {activeTab === "collections" && <CollectionsView data={data} onRefresh={fetchData} />}
       {activeTab === "dues" && <DuesView data={data} onRefresh={fetchData} />}
       {activeTab === "receipts" && <ReceiptsView data={data} />}
@@ -104,7 +108,7 @@ export default function FeesPage() {
   )
 }
 
-function StructuresView({ data, onRefresh, setShowModal, setEditingItem, setModalType }: any) {
+function StructuresView({ data, onRefresh, setShowModal, setEditingItem, setModalType, can, moduleKey }: any) {
   const [search, setSearch] = useState("")
   const filtered = data.filter((s: FeeStructure) =>
     !search || s.name?.toLowerCase().includes(search.toLowerCase()) || s.program?.name?.toLowerCase().includes(search.toLowerCase())
@@ -131,8 +135,8 @@ function StructuresView({ data, onRefresh, setShowModal, setEditingItem, setModa
                 <p className="text-xs text-gray-500">{s.program?.name} | Sem {s.semester} | {s.academicYear}</p>
               </div>
               <div className="flex gap-1">
-                <button onClick={() => { setEditingItem(s); setModalType("structure"); setShowModal(true) }} className="p-1 hover:bg-blue-50 rounded text-blue-600"><Edit size={14} /></button>
-                <button onClick={() => handleDelete(s.id)} className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 size={14} /></button>
+                {can(moduleKey, 'update') && <button onClick={() => { setEditingItem(s); setModalType("structure"); setShowModal(true) }} className="p-1 hover:bg-blue-50 rounded text-blue-600"><Edit size={14} /></button>}
+                {can(moduleKey, 'delete') && <button onClick={() => handleDelete(s.id)} className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 size={14} /></button>}
               </div>
             </div>
             <div className="space-y-1 text-sm text-gray-600">

@@ -1,6 +1,8 @@
 "use client"
 import { useEffect, useState } from "react"
 import { Plus, X, Search, Edit, Trash2, Users, DollarSign, FileText, Download, Eye, Wallet } from "lucide-react"
+import { useSession } from "next-auth/react"
+import { usePermissions } from "@/lib/permissions"
 
 type TabType = "staff" | "salary" | "payslip"
 interface Staff { id: string; employeeId: string; firstName: string; lastName: string; email: string; phone: string; department: string; designation: string; type: string; dateOfJoining: string; salary?: number; bankAccount?: string; ifscCode?: string; panNo?: string; uanNo?: string; address: string; isActive: boolean }
@@ -21,6 +23,8 @@ const statusColors: Record<string, string> = {
 const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 export default function HRPage() {
+  const { data: session } = useSession()
+  const { can } = usePermissions(session)
   const [activeTab, setActiveTab] = useState<TabType>("staff")
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -53,9 +57,9 @@ export default function HRPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-800">HR & Payroll</h1>
         <div className="flex gap-2">
-          {activeTab === "staff" && <button onClick={() => { setEditingItem(null); setModalType("staff"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Add Staff</button>}
-          {activeTab === "salary" && <button onClick={() => { setEditingItem(null); setModalType("salary"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Add Structure</button>}
-          {activeTab === "payslip" && <button onClick={() => { setModalType("payslip"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Generate Payslip</button>}
+          {activeTab === "staff" && can('hr', 'create') && <button onClick={() => { setEditingItem(null); setModalType("staff"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Add Staff</button>}
+          {activeTab === "salary" && can('hr', 'create') && <button onClick={() => { setEditingItem(null); setModalType("salary"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Add Structure</button>}
+          {activeTab === "payslip" && can('hr', 'create') && <button onClick={() => { setModalType("payslip"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Generate Payslip</button>}
         </div>
       </div>
 
@@ -68,8 +72,8 @@ export default function HRPage() {
         ))}
       </div>
 
-      {activeTab === "staff" && <StaffView data={data} onRefresh={fetchData} setShowModal={setShowModal} setEditingItem={setEditingItem} setModalType={setModalType} />}
-      {activeTab === "salary" && <SalaryView data={data} staffList={staffList} onRefresh={fetchData} setShowModal={setShowModal} setEditingItem={setEditingItem} setModalType={setModalType} />}
+      {activeTab === "staff" && <StaffView data={data} onRefresh={fetchData} setShowModal={setShowModal} setEditingItem={setEditingItem} setModalType={setModalType} can={can} moduleKey="hr" />}
+      {activeTab === "salary" && <SalaryView data={data} staffList={staffList} onRefresh={fetchData} setShowModal={setShowModal} setEditingItem={setEditingItem} setModalType={setModalType} can={can} moduleKey="hr" />}
       {activeTab === "payslip" && <PayslipView data={data} staffList={staffList} onRefresh={fetchData} setShowModal={setShowModal} setModalType={setModalType} />}
 
       {showModal && (
@@ -91,7 +95,7 @@ export default function HRPage() {
   )
 }
 
-function StaffView({ data, onRefresh, setShowModal, setEditingItem, setModalType }: any) {
+function StaffView({ data, onRefresh, setShowModal, setEditingItem, setModalType, can, moduleKey }: any) {
   const [search, setSearch] = useState("")
   const filtered = data.filter((s: Staff) =>
     !search || s.firstName?.toLowerCase().includes(search.toLowerCase()) || s.lastName?.toLowerCase().includes(search.toLowerCase()) || s.employeeId?.toLowerCase().includes(search.toLowerCase()) || s.department?.toLowerCase().includes(search.toLowerCase())
@@ -135,8 +139,8 @@ function StaffView({ data, onRefresh, setShowModal, setEditingItem, setModalType
                 <td className="table-cell"><span className={`badge ${s.isActive ? "badge-success" : "badge-danger"}`}>{s.isActive ? "Active" : "Inactive"}</span></td>
                 <td className="table-cell">
                   <div className="flex gap-1">
-                    <button onClick={() => { setEditingItem(s); setModalType("staff"); setShowModal(true) }} className="p-1 hover:bg-blue-50 rounded text-blue-600"><Edit size={14} /></button>
-                    <button onClick={() => handleDelete(s.id)} className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 size={14} /></button>
+                    {can(moduleKey, 'update') && <button onClick={() => { setEditingItem(s); setModalType("staff"); setShowModal(true) }} className="p-1 hover:bg-blue-50 rounded text-blue-600"><Edit size={14} /></button>}
+                    {can(moduleKey, 'delete') && <button onClick={() => handleDelete(s.id)} className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 size={14} /></button>}
                   </div>
                 </td>
               </tr>
@@ -207,7 +211,7 @@ function StaffForm({ edit, onClose }: { edit: any; onClose: () => void }) {
   )
 }
 
-function SalaryView({ data, staffList, onRefresh, setShowModal, setEditingItem, setModalType }: any) {
+function SalaryView({ data, staffList, onRefresh, setShowModal, setEditingItem, setModalType, can, moduleKey }: any) {
   const [staffFilter, setStaffFilter] = useState("")
   const filtered = data.filter((s: SalaryStructure) => !staffFilter || s.staffId === staffFilter)
   const getStaffName = (id: string) => { const st = staffList.find((s: Staff) => s.id === id); return st ? `${st.firstName} ${st.lastName}` : id }
@@ -256,8 +260,8 @@ function SalaryView({ data, staffList, onRefresh, setShowModal, setEditingItem, 
                   <td className="table-cell text-xs">{s.effectiveFrom ? new Date(s.effectiveFrom).toLocaleDateString() : ""}</td>
                   <td className="table-cell">
                     <div className="flex gap-1">
-                      <button onClick={() => { setEditingItem(s); setModalType("salary"); setShowModal(true) }} className="p-1 hover:bg-blue-50 rounded text-blue-600"><Edit size={14} /></button>
-                      <button onClick={() => handleDelete(s.id)} className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 size={14} /></button>
+                      {can(moduleKey, 'update') && <button onClick={() => { setEditingItem(s); setModalType("salary"); setShowModal(true) }} className="p-1 hover:bg-blue-50 rounded text-blue-600"><Edit size={14} /></button>}
+                      {can(moduleKey, 'delete') && <button onClick={() => handleDelete(s.id)} className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 size={14} /></button>}
                     </div>
                   </td>
                 </tr>

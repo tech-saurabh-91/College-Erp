@@ -1,5 +1,7 @@
 "use client"
 import { useEffect, useState } from "react"
+import { useSession } from "next-auth/react"
+import { usePermissions } from "@/lib/permissions"
 import { Plus, X, Search, Calendar, Download, Edit, Trash2, CheckCircle, XCircle, AlertTriangle } from "lucide-react"
 
 type TabType = "schedule" | "hallticket" | "marks" | "results"
@@ -31,6 +33,8 @@ export default function ExamsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [editingItem, setEditingItem] = useState<any>(null)
 
+  const { data: session } = useSession()
+  const { can } = usePermissions(session)
   useEffect(() => { fetchData() }, [activeTab])
 
   async function fetchData() {
@@ -50,7 +54,7 @@ export default function ExamsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-800">Examinations</h1>
-        {activeTab !== "hallticket" && activeTab !== "results" && (
+        {activeTab !== "hallticket" && activeTab !== "results" && can('examination', 'create') && (
           <button onClick={() => { setEditingItem(null); setShowModal(true) }} className="btn-primary flex items-center gap-2">
             <Plus size={16} /> {activeTab === "schedule" ? "New Schedule" : activeTab === "marks" ? "Enter Marks" : ""}
           </button>
@@ -66,7 +70,7 @@ export default function ExamsPage() {
         ))}
       </div>
 
-      {activeTab === "schedule" && <ScheduleView data={data} onRefresh={fetchData} setShowModal={setShowModal} setEditingItem={setEditingItem} />}
+      {activeTab === "schedule" && <ScheduleView data={data} onRefresh={fetchData} setShowModal={setShowModal} setEditingItem={setEditingItem} can={can} moduleKey="examination" />}
       {activeTab === "hallticket" && <HallTicketView />}
       {activeTab === "marks" && <MarksEntryView />}
       {activeTab === "results" && <ResultsView />}
@@ -86,7 +90,7 @@ export default function ExamsPage() {
   )
 }
 
-function ScheduleView({ data, onRefresh, setShowModal, setEditingItem }: any) {
+function ScheduleView({ data, onRefresh, setShowModal, setEditingItem, can, moduleKey }: any) {
   const [schedules, setSchedules] = useState<ExamSchedule[]>(data)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   useEffect(() => setSchedules(data), [data])
@@ -156,7 +160,7 @@ function ScheduleView({ data, onRefresh, setShowModal, setEditingItem }: any) {
                         <td className="table-cell">{e.startTime} - {e.endTime}</td>
                         <td className="table-cell">{e.roomNo || "-"}</td>
                         <td className="table-cell">{e.maxMarks}</td>
-                        <td className="table-cell"><button onClick={() => deleteExam(e.id)} className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 size={14} /></button></td>
+                        <td className="table-cell">{can(moduleKey, 'delete') && <button onClick={() => deleteExam(e.id)} className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 size={14} /></button>}</td>
                       </tr>
                     ))}
                     {(!s.exams || s.exams.length === 0) && <tr><td colSpan={7} className="text-center py-4 text-gray-400 text-sm">No exams added yet</td></tr>}
@@ -164,11 +168,11 @@ function ScheduleView({ data, onRefresh, setShowModal, setEditingItem }: any) {
                 </table>
               </div>
               <div className="p-3 border-t border-gray-100 flex gap-2">
-                <button onClick={() => { setEditingItem(s); setShowModal(true) }} className="btn-secondary text-xs flex items-center gap-1"><Edit size={14} /> Edit</button>
+                {can(moduleKey, 'update') && <button onClick={() => { setEditingItem(s); setShowModal(true) }} className="btn-secondary text-xs flex items-center gap-1"><Edit size={14} /> Edit</button>}
                 <button onClick={() => togglePublish(s)} className="btn-secondary text-xs flex items-center gap-1">
                   {s.isPublished ? <XCircle size={14} /> : <CheckCircle size={14} />} {s.isPublished ? "Unpublish" : "Publish"}
                 </button>
-                <button onClick={() => handleDelete(s.id)} className="btn-secondary text-xs text-red-600 flex items-center gap-1"><Trash2 size={14} /> Delete</button>
+                {can(moduleKey, 'delete') && <button onClick={() => handleDelete(s.id)} className="btn-secondary text-xs text-red-600 flex items-center gap-1"><Trash2 size={14} /> Delete</button>}
               </div>
             </div>
           )}
@@ -264,6 +268,8 @@ function HallTicketView() {
   const [selSchedule, setSelSchedule] = useState("")
   const [selStudent, setSelStudent] = useState("")
   const [loading, setLoading] = useState(true)
+  const { data: session } = useSession()
+  const { can } = usePermissions(session)
 
   useEffect(() => {
     fetch("/api/exams?type=schedule").then(r => r.json()).then(d => {
@@ -317,7 +323,7 @@ function HallTicketView() {
               {students.map(s => <option key={s.id} value={s.id}>{s.firstName} {s.lastName} ({s.rollNo})</option>)}
             </select>
           </div>
-          <button onClick={issueHallTicket} className="btn-primary flex items-center gap-2"><Download size={16} /> Issue Hall Ticket</button>
+          {can('examination', 'create') && <button onClick={issueHallTicket} className="btn-primary flex items-center gap-2"><Download size={16} /> Issue Hall Ticket</button>}
         </div>
       </div>
       <div className="card p-0 overflow-hidden">
@@ -353,6 +359,8 @@ function MarksEntryView() {
   const [selExam, setSelExam] = useState("")
   const [marks, setMarks] = useState<Record<string, { internal: string; external: string; result: string }>>({})
   const [saving, setSaving] = useState(false)
+  const { data: session } = useSession()
+  const { can } = usePermissions(session)
 
   useEffect(() => {
     fetch("/api/exams?type=schedule").then(r => r.json()).then(setSchedules)
@@ -436,7 +444,7 @@ function MarksEntryView() {
         <div className="card p-0 overflow-hidden">
           <div className="p-4 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
             <p className="text-sm text-gray-600">{exam?.subject?.name} | Max Marks: {exam?.maxMarks} | Date: {exam?.date ? new Date(exam.date).toLocaleDateString() : ""}</p>
-            <button onClick={saveMarks} disabled={saving} className="btn-primary text-sm">{saving ? "Saving..." : "Save All Marks"}</button>
+            {can('examination', 'update') && <button onClick={saveMarks} disabled={saving} className="btn-primary text-sm">{saving ? "Saving..." : "Save All Marks"}</button>}
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">

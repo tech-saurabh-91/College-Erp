@@ -1,5 +1,7 @@
 "use client"
 import { useEffect, useState } from "react"
+import { useSession } from "next-auth/react"
+import { usePermissions } from "@/lib/permissions"
 import { Plus, X, Search, Edit, Trash2, BookOpen, BookMarked, History, DollarSign, RotateCcw, UserCheck, AlertTriangle } from "lucide-react"
 
 type TabType = "books" | "issues" | "history"
@@ -23,6 +25,8 @@ export default function LibraryPage() {
   const [showModal, setShowModal] = useState(false)
   const [modalType, setModalType] = useState<"book" | "issue">("book")
   const [editingItem, setEditingItem] = useState<any>(null)
+  const { data: session } = useSession()
+  const { can } = usePermissions(session)
 
   useEffect(() => { fetchData() }, [activeTab])
 
@@ -42,8 +46,8 @@ export default function LibraryPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-800">Library Management</h1>
         <div className="flex gap-2">
-          {activeTab === "books" && <button onClick={() => { setEditingItem(null); setModalType("book"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Add Book</button>}
-          {activeTab === "issues" && <button onClick={() => { setModalType("issue"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Issue Book</button>}
+          {activeTab === "books" && can('library', 'create') && <button onClick={() => { setEditingItem(null); setModalType("book"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Add Book</button>}
+          {activeTab === "issues" && can('library', 'create') && <button onClick={() => { setModalType("issue"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Issue Book</button>}
         </div>
       </div>
 
@@ -56,7 +60,7 @@ export default function LibraryPage() {
         ))}
       </div>
 
-      {activeTab === "books" && <BooksView data={data} onRefresh={fetchData} setShowModal={setShowModal} setEditingItem={setEditingItem} setModalType={setModalType} />}
+      {activeTab === "books" && <BooksView data={data} onRefresh={fetchData} setShowModal={setShowModal} setEditingItem={setEditingItem} setModalType={setModalType} can={can} moduleKey="library" />}
       {activeTab === "issues" && <IssuesView data={data} onRefresh={fetchData} />}
       {activeTab === "history" && <HistoryView data={data} />}
 
@@ -78,7 +82,7 @@ export default function LibraryPage() {
   )
 }
 
-function BooksView({ data, onRefresh, setShowModal, setEditingItem, setModalType }: any) {
+function BooksView({ data, onRefresh, setShowModal, setEditingItem, setModalType, can, moduleKey }: any) {
   const [search, setSearch] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("")
   const filtered = data.filter((b: Book) => {
@@ -131,8 +135,8 @@ function BooksView({ data, onRefresh, setShowModal, setEditingItem, setModalType
                 <td className="table-cell text-center"><span className={`font-semibold ${b.available > 0 ? "text-green-600" : "text-red-600"}`}>{b.available}</span></td>
                 <td className="table-cell">
                   <div className="flex gap-1">
-                    <button onClick={() => { setEditingItem(b); setModalType("book"); setShowModal(true) }} className="p-1 hover:bg-blue-50 rounded text-blue-600"><Edit size={14} /></button>
-                    <button onClick={() => handleDelete(b.id)} className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 size={14} /></button>
+                    {can(moduleKey, 'update') && <button onClick={() => { setEditingItem(b); setModalType("book"); setShowModal(true) }} className="p-1 hover:bg-blue-50 rounded text-blue-600"><Edit size={14} /></button>}
+                    {can(moduleKey, 'delete') && <button onClick={() => handleDelete(b.id)} className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 size={14} /></button>}
                   </div>
                 </td>
               </tr>

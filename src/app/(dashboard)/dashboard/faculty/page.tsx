@@ -1,6 +1,8 @@
 "use client"
 import { useEffect, useState } from "react"
 import { Plus, X, Search, Edit, Trash2, BookOpen, CalendarDays, CheckCircle, XCircle } from "lucide-react"
+import { useSession } from "next-auth/react"
+import { usePermissions } from "@/lib/permissions"
 
 interface Faculty {
   id: string; employeeId: string; firstName: string; lastName: string; email: string; phone: string;
@@ -26,6 +28,8 @@ const statusColors: Record<string, string> = {
 }
 
 export default function FacultyPage() {
+  const { data: session } = useSession()
+  const { can } = usePermissions(session)
   const [activeTab, setActiveTab] = useState<TabType>("list")
   const [faculty, setFaculty] = useState<Faculty[]>([])
   const [subjects, setSubjects] = useState<FacultySubject[]>([])
@@ -85,9 +89,9 @@ export default function FacultyPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-800">Faculty Management</h1>
-        <button onClick={() => { setModalType("faculty"); setEditingFaculty(null); setShowModal(true) }} className="btn-primary flex items-center gap-2">
+        {can("faculty", "create") && <button onClick={() => { setModalType("faculty"); setEditingFaculty(null); setShowModal(true) }} className="btn-primary flex items-center gap-2">
           <Plus size={16} /> Add Faculty
-        </button>
+        </button>}
       </div>
 
       <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit">
@@ -143,8 +147,8 @@ export default function FacultyPage() {
                         <td className="table-cell"><span className={`badge ${f.isActive ? "badge-success" : "badge-danger"}`}>{f.isActive ? "Active" : "Inactive"}</span></td>
                         <td className="table-cell">
                           <div className="flex items-center gap-2">
-                            <button onClick={() => { setEditingFaculty(f); setModalType("faculty"); setShowModal(true) }} className="p-1.5 hover:bg-blue-50 rounded text-blue-600"><Edit size={15} /></button>
-                            <button onClick={() => handleDelete(f.id)} className="p-1.5 hover:bg-red-50 rounded text-red-600"><Trash2 size={15} /></button>
+                            {can("faculty", "update") && <button onClick={() => { setEditingFaculty(f); setModalType("faculty"); setShowModal(true) }} className="p-1.5 hover:bg-blue-50 rounded text-blue-600"><Edit size={15} /></button>}
+                            {can("faculty", "delete") && <button onClick={() => handleDelete(f.id)} className="p-1.5 hover:bg-red-50 rounded text-red-600"><Trash2 size={15} /></button>}
                           </div>
                         </td>
                       </tr>
@@ -161,7 +165,7 @@ export default function FacultyPage() {
         <div>
           <div className="flex justify-between items-center mb-4">
             <p className="text-sm text-gray-600">{subjects.length} total assignments</p>
-            <button onClick={() => { setModalType("subject"); setShowModal(true) }} className="btn-primary text-sm flex items-center gap-1"><Plus size={14} /> Assign Subject</button>
+            {can("faculty", "create") && <button onClick={() => { setModalType("subject"); setShowModal(true) }} className="btn-primary text-sm flex items-center gap-1"><Plus size={14} /> Assign Subject</button>}
           </div>
           <div className="card p-0 overflow-hidden">
             <table className="w-full">
@@ -182,7 +186,7 @@ export default function FacultyPage() {
                     <td className="table-cell">Sem {s.semester}</td>
                     <td className="table-cell">{s.academicYear}</td>
                     <td className="table-cell">
-                      <button onClick={async () => { if (confirm("Remove this assignment?")) { await fetch(`/api/faculty?type=subject&id=${s.id}`, { method: "DELETE" }); fetchData() } }} className="p-1.5 hover:bg-red-50 rounded text-red-600"><Trash2 size={15} /></button>
+                      {can("faculty", "delete") && <button onClick={async () => { if (confirm("Remove this assignment?")) { await fetch(`/api/faculty?type=subject&id=${s.id}`, { method: "DELETE" }); fetchData() } }} className="p-1.5 hover:bg-red-50 rounded text-red-600"><Trash2 size={15} /></button>}
                     </td>
                   </tr>
                 ))}
@@ -197,7 +201,7 @@ export default function FacultyPage() {
         <div>
           <div className="flex justify-between items-center mb-4">
             <p className="text-sm text-gray-600">{leaves.length} leave requests</p>
-            <button onClick={() => { setModalType("leave"); setShowModal(true) }} className="btn-primary text-sm flex items-center gap-1"><Plus size={14} /> New Leave Request</button>
+            {can("faculty", "create") && <button onClick={() => { setModalType("leave"); setShowModal(true) }} className="btn-primary text-sm flex items-center gap-1"><Plus size={14} /> New Leave Request</button>}
           </div>
           <div className="card p-0 overflow-hidden">
             <table className="w-full">

@@ -1,6 +1,8 @@
 "use client"
 import { useEffect, useState } from "react"
 import { Plus, Search, X, Eye, Edit, Trash2, Download } from "lucide-react"
+import { useSession } from "next-auth/react"
+import { usePermissions } from "@/lib/permissions"
 
 type TabType = "enquiry" | "application" | "merit" | "enrolled"
 
@@ -36,6 +38,8 @@ export default function AdmissionsPage() {
   const [editingItem, setEditingItem] = useState<any>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [programs, setPrograms] = useState<Program[]>([])
+  const { data: session } = useSession()
+  const { can } = usePermissions(session)
 
   useEffect(() => { fetchData(); if (activeTab === "application") fetchPrograms() }, [activeTab])
 
@@ -141,9 +145,9 @@ export default function AdmissionsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-800">Admissions</h1>
-        <button onClick={() => { setEditingItem(null); setShowModal(true) }} className="btn-primary flex items-center gap-2">
+        {can('admission', 'create') && <button onClick={() => { setEditingItem(null); setShowModal(true) }} className="btn-primary flex items-center gap-2">
           <Plus size={16} /> New {activeTab === "enquiry" ? "Enquiry" : activeTab === "application" ? "Application" : activeTab === "merit" ? "Merit List" : "Allotment"}
-        </button>
+        </button>}
       </div>
 
       <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit">
@@ -187,10 +191,10 @@ export default function AdmissionsPage() {
                           className="p-1.5 hover:bg-blue-50 rounded text-blue-600"><Eye size={15} /></button>
                         {(activeTab === "enquiry" || activeTab === "application") && (
                           <>
-                            <button onClick={() => { setEditingItem(item); setShowModal(true) }}
-                              className="p-1.5 hover:bg-green-50 rounded text-green-600"><Edit size={15} /></button>
-                            <button onClick={() => handleDelete(item)}
-                              className="p-1.5 hover:bg-red-50 rounded text-red-600"><Trash2 size={15} /></button>
+                            {can('admission', 'update') && <button onClick={() => { setEditingItem(item); setShowModal(true) }}
+                              className="p-1.5 hover:bg-green-50 rounded text-green-600"><Edit size={15} /></button>}
+                            {can('admission', 'delete') && <button onClick={() => handleDelete(item)}
+                              className="p-1.5 hover:bg-red-50 rounded text-red-600"><Trash2 size={15} /></button>}
                           </>
                         )}
                       </div>

@@ -1,6 +1,8 @@
 "use client"
 import { useEffect, useState } from "react"
 import { Plus, X, Search, Send, Bell, MessageSquare, Megaphone, Mail, Trash2, CheckCircle, Clock, AlertTriangle } from "lucide-react"
+import { useSession } from "next-auth/react"
+import { usePermissions } from "@/lib/permissions"
 
 type TabType = "broadcast" | "notifications" | "messages"
 interface Broadcast { id: string; title: string; message: string; type: string; audience: string; status: string; sentAt?: string; createdAt: string }
@@ -21,6 +23,8 @@ const statusColors: Record<string, string> = {
 }
 
 export default function CommunicationPage() {
+  const { data: session } = useSession()
+  const { can } = usePermissions(session)
   const [activeTab, setActiveTab] = useState<TabType>("broadcast")
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -45,8 +49,8 @@ export default function CommunicationPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-800">Communication</h1>
         <div className="flex gap-2">
-          {activeTab === "broadcast" && <button onClick={() => { setEditingItem(null); setComposeType("broadcast"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> New Broadcast</button>}
-          {activeTab === "messages" && <button onClick={() => { setComposeType("message"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Compose Message</button>}
+          {activeTab === "broadcast" && can('communication', 'create') && <button onClick={() => { setEditingItem(null); setComposeType("broadcast"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> New Broadcast</button>}
+          {activeTab === "messages" && can('communication', 'create') && <button onClick={() => { setComposeType("message"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Compose Message</button>}
         </div>
       </div>
 
@@ -59,7 +63,7 @@ export default function CommunicationPage() {
         ))}
       </div>
 
-      {activeTab === "broadcast" && <BroadcastView data={data} onRefresh={fetchData} setShowModal={setShowModal} setEditingItem={setEditingItem} setComposeType={setComposeType} />}
+      {activeTab === "broadcast" && <BroadcastView data={data} onRefresh={fetchData} setShowModal={setShowModal} setEditingItem={setEditingItem} setComposeType={setComposeType} can={can} moduleKey="communication" />}
       {activeTab === "notifications" && <NotificationsView data={data} onRefresh={fetchData} />}
       {activeTab === "messages" && <MessagesView data={data} onRefresh={fetchData} setShowModal={setShowModal} />}
 
@@ -81,7 +85,7 @@ export default function CommunicationPage() {
   )
 }
 
-function BroadcastView({ data, onRefresh, setShowModal, setEditingItem, setComposeType }: any) {
+function BroadcastView({ data, onRefresh, setShowModal, setEditingItem, setComposeType, can, moduleKey }: any) {
   const [search, setSearch] = useState("")
   const filtered = data.filter((b: Broadcast) =>
     !search || b.title?.toLowerCase().includes(search.toLowerCase()) || b.audience?.toLowerCase().includes(search.toLowerCase())
@@ -118,8 +122,8 @@ function BroadcastView({ data, onRefresh, setShowModal, setEditingItem, setCompo
               <div className="flex gap-1 ml-4">
                 {b.status === "DRAFT" && (
                   <>
-                    <button onClick={() => { setEditingItem(b); setComposeType("broadcast"); setShowModal(true) }} className="p-1 hover:bg-blue-50 rounded text-blue-600"><Mail size={14} /></button>
-                    <button onClick={() => handleDelete(b.id)} className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 size={14} /></button>
+                    {can(moduleKey, 'update') && <button onClick={() => { setEditingItem(b); setComposeType("broadcast"); setShowModal(true) }} className="p-1 hover:bg-blue-50 rounded text-blue-600"><Mail size={14} /></button>}
+                    {can(moduleKey, 'delete') && <button onClick={() => handleDelete(b.id)} className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 size={14} /></button>}
                   </>
                 )}
               </div>

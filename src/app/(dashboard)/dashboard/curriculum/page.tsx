@@ -1,6 +1,8 @@
 "use client"
 import { useEffect, useState } from "react"
 import { Plus, X, ChevronDown, ChevronRight, BookOpen, Layers, BookText } from "lucide-react"
+import { useSession } from "next-auth/react"
+import { usePermissions } from "@/lib/permissions"
 
 interface Program { id: string; code: string; name: string; duration: number; degreeType: string; department: string; description?: string; totalSemesters: number; totalCredits?: number; isActive: boolean }
 interface Course { id: string; code: string; name: string; programId: string; program?: Program; semester: number; credits: number; isElective: boolean; description?: string; maxMarks: number; passMarks: number; isActive: boolean }
@@ -9,6 +11,8 @@ interface Subject { id: string; code: string; name: string; courseId: string; co
 const degreeTypes = ["BACHELOR", "MASTER", "DIPLOMA", "CERTIFICATE"]
 
 export default function CurriculumPage() {
+  const { data: session } = useSession()
+  const { can } = usePermissions(session)
   const [activeView, setActiveView] = useState<"program" | "course" | "subject">("program")
   const [programs, setPrograms] = useState<Program[]>([])
   const [courses, setCourses] = useState<Course[]>([])
@@ -46,9 +50,9 @@ export default function CurriculumPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-800">Curriculum Management</h1>
-        <button onClick={() => { setEditingItem(null); setShowModal(true) }} className="btn-primary flex items-center gap-2">
+        {can("curriculum", "create") && <button onClick={() => { setEditingItem(null); setShowModal(true) }} className="btn-primary flex items-center gap-2">
           <Plus size={16} /> Add {activeView === "program" ? "Program" : activeView === "course" ? "Course" : "Subject"}
-        </button>
+        </button>}
       </div>
 
       <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit">
@@ -92,7 +96,7 @@ export default function CurriculumPage() {
                   <td className="table-cell">{p.totalSemesters}</td>
                   <td className="table-cell"><span className={`badge ${p.isActive ? "badge-success" : "badge-danger"}`}>{p.isActive ? "Active" : "Inactive"}</span></td>
                   <td className="table-cell">
-                    <button onClick={() => { setEditingItem(p); setShowModal(true) }} className="text-blue-600 hover:underline text-sm">Edit</button>
+                    {can("curriculum", "update") && <button onClick={() => { setEditingItem(p); setShowModal(true) }} className="text-blue-600 hover:underline text-sm">Edit</button>}
                   </td>
                 </tr>
               ))}
@@ -147,7 +151,7 @@ export default function CurriculumPage() {
                               <td className="table-cell">{c.isElective ? "Elective" : "Core"}</td>
                               <td className="table-cell"><span className={`badge ${c.isActive ? "badge-success" : "badge-danger"}`}>{c.isActive ? "Active" : "Inactive"}</span></td>
                               <td className="table-cell">
-                                <button onClick={() => { setEditingItem(c); setShowModal(true) }} className="text-blue-600 hover:underline text-sm">Edit</button>
+                                {can("curriculum", "update") && <button onClick={() => { setEditingItem(c); setShowModal(true) }} className="text-blue-600 hover:underline text-sm">Edit</button>}
                               </td>
                             </tr>
                           ))}
@@ -205,7 +209,7 @@ export default function CurriculumPage() {
                               <td className="table-cell">{s.maxMarks}</td>
                               <td className="table-cell"><span className={`badge ${s.isActive ? "badge-success" : "badge-danger"}`}>{s.isActive ? "Active" : "Inactive"}</span></td>
                               <td className="table-cell">
-                                <button onClick={() => { setEditingItem(s); setShowModal(true) }} className="text-blue-600 hover:underline text-sm">Edit</button>
+                                {can("curriculum", "update") && <button onClick={() => { setEditingItem(s); setShowModal(true) }} className="text-blue-600 hover:underline text-sm">Edit</button>}
                               </td>
                             </tr>
                           ))}

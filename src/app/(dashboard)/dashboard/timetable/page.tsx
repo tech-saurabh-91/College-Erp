@@ -1,6 +1,8 @@
 "use client"
 import { useEffect, useState } from "react"
 import { Plus, X, Trash2, Edit } from "lucide-react"
+import { useSession } from "next-auth/react"
+import { usePermissions } from "@/lib/permissions"
 
 interface TimetableEntry {
   id: string; dayOfWeek: number; startTime: string; endTime: string; roomNo: string;
@@ -25,6 +27,8 @@ const HOURS = Array.from({ length: 10 }, (_, i) => {
 })
 
 export default function TimetablePage() {
+  const { data: session } = useSession()
+  const { can } = usePermissions(session)
   const [entries, setEntries] = useState<TimetableEntry[]>([])
   const [classSections, setClassSections] = useState<ClassSection[]>([])
   const [subjects, setSubjects] = useState<Subject[]>([])
@@ -76,9 +80,9 @@ export default function TimetablePage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <h1 className="text-2xl font-bold text-gray-800">Timetable</h1>
-        <button onClick={() => { setEditingEntry(null); setShowModal(true) }} className="btn-primary flex items-center gap-2">
+        {can("timetable", "create") && <button onClick={() => { setEditingEntry(null); setShowModal(true) }} className="btn-primary flex items-center gap-2">
           <Plus size={16} /> Add Entry
-        </button>
+        </button>}
       </div>
 
       <div className="flex items-center gap-4">
@@ -118,10 +122,10 @@ export default function TimetablePage() {
                           <p className="text-blue-600 truncate">{entry.faculty?.firstName} {entry.faculty?.lastName}</p>
                           <p className="text-blue-400">Room {entry.roomNo}</p>
                           <div className="absolute -top-1.5 -right-1.5 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => { setEditingEntry(entry); setShowModal(true) }}
-                              className="bg-green-500 text-white rounded-full p-0.5"><Edit size={12} /></button>
-                            <button onClick={() => handleDelete(entry.id)}
-                              className="bg-red-500 text-white rounded-full p-0.5"><Trash2 size={12} /></button>
+                            {can("timetable", "update") && <button onClick={() => { setEditingEntry(entry); setShowModal(true) }}
+                              className="bg-green-500 text-white rounded-full p-0.5"><Edit size={12} /></button>}
+                            {can("timetable", "delete") && <button onClick={() => handleDelete(entry.id)}
+                              className="bg-red-500 text-white rounded-full p-0.5"><Trash2 size={12} /></button>}
                           </div>
                         </div>
                       ) : (

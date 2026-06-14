@@ -1,6 +1,8 @@
 "use client"
 import { useEffect, useState } from "react"
 import { Plus, X, Search, Edit, Trash2, Users, Briefcase, Calendar, DollarSign, MapPin, Phone, Mail, Globe, GraduationCap, Building2, Clock, CheckCircle } from "lucide-react"
+import { useSession } from "next-auth/react"
+import { usePermissions } from "@/lib/permissions"
 
 type TabType = "alumni" | "jobs" | "events" | "donations"
 interface Alumni { id: string; userId: string; studentId?: string; graduationYear: number; program: string; currentEmployer?: string; position?: string; linkedinUrl?: string; address?: string; phone: string; isVerified: boolean; createdAt: string; user?: { id: string; name: string; email: string } }
@@ -20,6 +22,8 @@ const eventTypeColors: Record<string, string> = {
 }
 
 export default function AlumniPage() {
+  const { data: session } = useSession()
+  const { can } = usePermissions(session)
   const [activeTab, setActiveTab] = useState<TabType>("alumni")
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -44,9 +48,9 @@ export default function AlumniPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-800">Alumni Portal</h1>
         <div className="flex gap-2">
-          {activeTab === "jobs" && <button onClick={() => { setEditingItem(null); setModalType("job"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Post Job</button>}
-          {activeTab === "events" && <button onClick={() => { setEditingItem(null); setModalType("event"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Create Event</button>}
-          {activeTab === "donations" && <button onClick={() => { setModalType("donation"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Record Donation</button>}
+          {activeTab === "jobs" && can('alumni', 'create') && <button onClick={() => { setEditingItem(null); setModalType("job"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Post Job</button>}
+          {activeTab === "events" && can('alumni', 'create') && <button onClick={() => { setEditingItem(null); setModalType("event"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Create Event</button>}
+          {activeTab === "donations" && can('alumni', 'create') && <button onClick={() => { setModalType("donation"); setShowModal(true) }} className="btn-primary flex items-center gap-2"><Plus size={16} /> Record Donation</button>}
         </div>
       </div>
 
@@ -60,8 +64,8 @@ export default function AlumniPage() {
       </div>
 
       {activeTab === "alumni" && <AlumniView data={data} />}
-      {activeTab === "jobs" && <JobsView data={data} onRefresh={fetchData} setShowModal={setShowModal} setEditingItem={setEditingItem} setModalType={setModalType} />}
-      {activeTab === "events" && <EventsView data={data} onRefresh={fetchData} setShowModal={setShowModal} setEditingItem={setEditingItem} setModalType={setModalType} />}
+      {activeTab === "jobs" && <JobsView data={data} onRefresh={fetchData} setShowModal={setShowModal} setEditingItem={setEditingItem} setModalType={setModalType} can={can} moduleKey="alumni" />}
+      {activeTab === "events" && <EventsView data={data} onRefresh={fetchData} setShowModal={setShowModal} setEditingItem={setEditingItem} setModalType={setModalType} can={can} moduleKey="alumni" />}
       {activeTab === "donations" && <DonationsView data={data} onRefresh={fetchData} />}
 
       {showModal && (
@@ -142,7 +146,7 @@ function AlumniView({ data }: { data: Alumni[] }) {
   )
 }
 
-function JobsView({ data, onRefresh, setShowModal, setEditingItem, setModalType }: any) {
+function JobsView({ data, onRefresh, setShowModal, setEditingItem, setModalType, can, moduleKey }: any) {
   const [search, setSearch] = useState("")
   const filtered = data.filter((j: JobPost) =>
     !search || j.title?.toLowerCase().includes(search.toLowerCase()) || j.company?.toLowerCase().includes(search.toLowerCase()) || j.location?.toLowerCase().includes(search.toLowerCase())
@@ -169,8 +173,8 @@ function JobsView({ data, onRefresh, setShowModal, setEditingItem, setModalType 
                 <p className="text-sm text-gray-600 flex items-center gap-1"><Building2 size={14} /> {j.company}</p>
               </div>
               <div className="flex gap-1">
-                <button onClick={() => { setEditingItem(j); setModalType("job"); setShowModal(true) }} className="p-1 hover:bg-blue-50 rounded text-blue-600"><Edit size={14} /></button>
-                <button onClick={() => handleDelete(j.id)} className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 size={14} /></button>
+                {can(moduleKey, 'update') && <button onClick={() => { setEditingItem(j); setModalType("job"); setShowModal(true) }} className="p-1 hover:bg-blue-50 rounded text-blue-600"><Edit size={14} /></button>}
+                {can(moduleKey, 'delete') && <button onClick={() => handleDelete(j.id)} className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 size={14} /></button>}
               </div>
             </div>
             <p className="text-sm text-gray-600 mb-2 line-clamp-2">{j.description}</p>
@@ -230,7 +234,7 @@ function JobForm({ edit, onClose }: { edit: any; onClose: () => void }) {
   )
 }
 
-function EventsView({ data, onRefresh, setShowModal, setEditingItem, setModalType }: any) {
+function EventsView({ data, onRefresh, setShowModal, setEditingItem, setModalType, can, moduleKey }: any) {
   const [search, setSearch] = useState("")
   const filtered = data.filter((e: AlumniEvent) =>
     !search || e.title?.toLowerCase().includes(search.toLowerCase()) || e.type?.toLowerCase().includes(search.toLowerCase()) || e.venue?.toLowerCase().includes(search.toLowerCase())
@@ -261,8 +265,8 @@ function EventsView({ data, onRefresh, setShowModal, setEditingItem, setModalTyp
                 </p>
               </div>
               <div className="flex gap-1">
-                <button onClick={() => { setEditingItem(e); setModalType("event"); setShowModal(true) }} className="p-1 hover:bg-blue-50 rounded text-blue-600"><Edit size={14} /></button>
-                <button onClick={() => handleDelete(e.id)} className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 size={14} /></button>
+                {can(moduleKey, 'update') && <button onClick={() => { setEditingItem(e); setModalType("event"); setShowModal(true) }} className="p-1 hover:bg-blue-50 rounded text-blue-600"><Edit size={14} /></button>}
+                {can(moduleKey, 'delete') && <button onClick={() => handleDelete(e.id)} className="p-1 hover:bg-red-50 rounded text-red-600"><Trash2 size={14} /></button>}
               </div>
             </div>
             <p className="text-sm text-gray-600 mb-2">{e.description}</p>
