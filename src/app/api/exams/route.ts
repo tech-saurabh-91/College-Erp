@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 
 export async function GET(req: NextRequest) {
+  const session = await getServerSession(authOptions)
+  const role = (session?.user as any)?.role
+  const userId = (session?.user as any)?.id
+
   const { searchParams } = new URL(req.url)
   const type = searchParams.get("type")
   const scheduleId = searchParams.get("scheduleId")
-  const studentId = searchParams.get("studentId")
+  let studentId = searchParams.get("studentId")
 
   try {
     if (type === "schedule") {
@@ -58,6 +64,30 @@ export async function GET(req: NextRequest) {
       })
       return NextResponse.json(data)
     }
+    if (type === "my-results") {
+      if (!role || !userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      let myStudentIds: string[] = []
+      if (role === "STUDENT") {
+        const myStudent = await prisma.student.findUnique({ where: { userId }, select: { id: true } })
+        if (myStudent) myStudentIds = [myStudent.id]
+      } else if (role === "PARENT") {
+        const parent = await prisma.parent.findUnique({ where: { userId }, select: { id: true } })
+        if (parent) {
+          const children = await prisma.student.findMany({ where: { parentId: parent.id }, select: { id: true } })
+          myStudentIds = children.map(c => c.id)
+        }
+      } else {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      }
+      if (myStudentIds.length === 0) return NextResponse.json([])
+      const data = await prisma.mark.findMany({
+        where: { studentId: { in: myStudentIds } },
+        include: { student: true, exam: { include: { subject: true, schedule: true } }, subject: true, course: true },
+        orderBy: [{ exam: { scheduleId: "desc" } }, { exam: { date: "desc" } }, { student: { rollNo: "asc" } }],
+      })
+      return NextResponse.json(data)
+    }
+
     if (type === "programs") {
       const data = await prisma.program.findMany({ where: { isActive: true }, orderBy: { name: "asc" } })
       return NextResponse.json(data)

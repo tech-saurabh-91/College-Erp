@@ -35,6 +35,11 @@ export default function ExamsPage() {
 
   const { data: session } = useSession()
   const { can } = usePermissions(session)
+
+  const role = (session?.user as any)?.role
+  const isStudentOrParent = role === "STUDENT" || role === "PARENT"
+  if (isStudentOrParent) return <StudentResultsView />
+
   useEffect(() => { fetchData() }, [activeTab])
 
   async function fetchData() {
@@ -534,6 +539,80 @@ function ResultsView() {
           </tbody>
         </table>
       </div>
+    </div>
+  )
+}
+
+function StudentResultsView() {
+  const [marks, setMarks] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    setLoading(true)
+    fetch("/api/exams?type=my-results")
+      .then(r => r.json())
+      .then(d => { setMarks(Array.isArray(d) ? d : []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [])
+
+  if (loading) return <div className="text-center py-10 text-gray-500">Loading results...</div>
+
+  const grouped: Record<string, any[]> = {}
+  marks.forEach(m => {
+    const scheduleName = m.exam?.schedule?.name || m.exam?.scheduleId || "Unknown"
+    if (!grouped[scheduleName]) grouped[scheduleName] = []
+    grouped[scheduleName].push(m)
+  })
+
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold text-gray-800">My Results</h1>
+
+      {Object.keys(grouped).length === 0 && (
+        <div className="card text-center py-12">
+          <p className="text-gray-500">No exam results found for your account.</p>
+        </div>
+      )}
+
+      {Object.entries(grouped).map(([scheduleName, scheduleMarks]) => {
+        const exam = scheduleMarks[0]?.exam
+        const schedule = exam?.schedule
+        return (
+          <div key={scheduleName} className="card p-0 overflow-hidden">
+            <div className="p-4 bg-gray-50 border-b border-gray-100 flex items-center gap-3">
+              <Calendar size={18} className="text-blue-500" />
+              <div>
+                <h2 className="font-semibold text-gray-800">{scheduleName}</h2>
+                {schedule && <p className="text-xs text-gray-500">{schedule.program?.name} | {schedule.type} | {schedule.academicYear}</p>}
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead><tr>
+                  <th className="table-header">Subject</th>
+                  <th className="table-header">Date</th>
+                  <th className="table-header">Internal</th>
+                  <th className="table-header">External</th>
+                  <th className="table-header">Total</th>
+                  <th className="table-header">Result</th>
+                </tr></thead>
+                <tbody>
+                  {scheduleMarks.map((m: any) => (
+                    <tr key={m.id || `${m.studentId}-${m.examId}`} className="hover:bg-gray-50">
+                      <td className="table-cell font-medium">{m.subject?.name || m.exam?.subject?.name}</td>
+                      <td className="table-cell text-xs">{m.exam?.date ? new Date(m.exam.date).toLocaleDateString() : "-"}</td>
+                      <td className="table-cell">{m.internalMarks ?? "-"}</td>
+                      <td className="table-cell">{m.externalMarks ?? "-"}</td>
+                      <td className="table-cell font-semibold">{m.totalMarks != null ? m.totalMarks : ((m.internalMarks ?? 0) + (m.externalMarks ?? 0)) || "-"}</td>
+                      <td className="table-cell"><span className={`badge ${statusColors[m.result] || "badge-default"}`}>{m.result}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }

@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 
 export async function GET(req: NextRequest) {
+  const session = await getServerSession(authOptions)
+  const role = (session?.user as any)?.role
+  const userId = (session?.user as any)?.id
+
   const { searchParams } = new URL(req.url)
   const type = searchParams.get("type")
   const programId = searchParams.get("programId")
-  const studentId = searchParams.get("studentId")
+  let studentId = searchParams.get("studentId")
   const feeAccountId = searchParams.get("feeAccountId")
   const status = searchParams.get("status")
 
@@ -63,6 +69,30 @@ export async function GET(req: NextRequest) {
         where: { status: "ACTIVE" },
         orderBy: { rollNo: "asc" },
         select: { id: true, rollNo: true, firstName: true, lastName: true, programId: true, currentSemester: true },
+      })
+      return NextResponse.json(data)
+    }
+
+    if (type === "my-accounts") {
+      if (!role || !userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      let myStudentIds: string[] = []
+      if (role === "STUDENT") {
+        const myStudent = await prisma.student.findUnique({ where: { userId }, select: { id: true } })
+        if (myStudent) myStudentIds = [myStudent.id]
+      } else if (role === "PARENT") {
+        const parent = await prisma.parent.findUnique({ where: { userId }, select: { id: true } })
+        if (parent) {
+          const children = await prisma.student.findMany({ where: { parentId: parent.id }, select: { id: true } })
+          myStudentIds = children.map(c => c.id)
+        }
+      } else if (role === "ADMIN" || role === "FACULTY") {
+        return NextResponse.json({ error: "Use type=accounts for admin view" }, { status: 400 })
+      }
+      if (myStudentIds.length === 0) return NextResponse.json([])
+      const data = await prisma.feeAccount.findMany({
+        where: { studentId: { in: myStudentIds } },
+        include: { student: true, feeStructure: { include: { program: true } }, payments: { orderBy: { paymentDate: "desc" } } },
+        orderBy: { createdAt: "desc" },
       })
       return NextResponse.json(data)
     }

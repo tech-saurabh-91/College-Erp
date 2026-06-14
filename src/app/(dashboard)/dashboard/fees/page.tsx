@@ -34,6 +34,10 @@ export default function FeesPage() {
   const { data: session } = useSession()
   const { can } = usePermissions(session)
 
+  const role = (session?.user as any)?.role
+  const isStudentOrParent = role === "STUDENT" || role === "PARENT"
+  if (isStudentOrParent) return <StudentFeeView />
+
   useEffect(() => { fetchData(); fetchStats() }, [activeTab])
 
   async function fetchStats() {
@@ -436,6 +440,111 @@ function ReceiptsView({ data }: { data: Payment[] }) {
           {data.length === 0 && <tr><td colSpan={7} className="text-center py-10 text-gray-500">No payments recorded</td></tr>}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+function StudentFeeView() {
+  const [accounts, setAccounts] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    setLoading(true)
+    fetch("/api/fees?type=my-accounts")
+      .then(r => r.json())
+      .then(d => { setAccounts(Array.isArray(d) ? d : []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [])
+
+  if (loading) return <div className="text-center py-10 text-gray-500">Loading fee details...</div>
+
+  if (accounts.length === 0) return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold text-gray-800">My Fee Details</h1>
+      <div className="card text-center py-12">
+        <p className="text-gray-500">No fee records found for your account.</p>
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold text-gray-800">My Fee Details</h1>
+
+      {accounts.map((acc: any) => {
+        const totalPaid = acc.payments?.filter((p: any) => p.status === "COMPLETED").reduce((s: number, p: any) => s + p.amount, 0) || 0
+        const due = acc.totalFee - totalPaid
+        return (
+          <div key={acc.id} className="card space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-800">{acc.feeStructure?.name}</h2>
+                <p className="text-sm text-gray-500">{acc.feeStructure?.program?.name} | Sem {acc.feeStructure?.semester} | {acc.feeStructure?.academicYear}</p>
+              </div>
+              <span className={`badge ${statusColors[acc.status] || "badge-default"} text-sm px-3 py-1`}>{acc.status}</span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-blue-50 rounded-lg p-3 text-center">
+                <p className="text-xs text-gray-500">Total Fee</p>
+                <p className="text-xl font-bold text-blue-700">₹{acc.totalFee?.toLocaleString()}</p>
+              </div>
+              <div className="bg-green-50 rounded-lg p-3 text-center">
+                <p className="text-xs text-gray-500">Paid</p>
+                <p className="text-xl font-bold text-green-700">₹{totalPaid.toLocaleString()}</p>
+              </div>
+              <div className="bg-red-50 rounded-lg p-3 text-center">
+                <p className="text-xs text-gray-500">Due</p>
+                <p className={`text-xl font-bold ${due > 0 ? "text-red-700" : "text-green-700"}`}>₹{due.toLocaleString()}</p>
+              </div>
+            </div>
+
+            {acc.feeStructure && (
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">Fee Breakdown</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                  <div className="bg-gray-50 rounded p-2 flex justify-between"><span className="text-gray-500">Tuition</span><span className="font-medium">₹{acc.feeStructure.tuitionFee}</span></div>
+                  <div className="bg-gray-50 rounded p-2 flex justify-between"><span className="text-gray-500">Exam</span><span className="font-medium">₹{acc.feeStructure.examFee}</span></div>
+                  <div className="bg-gray-50 rounded p-2 flex justify-between"><span className="text-gray-500">Library</span><span className="font-medium">₹{acc.feeStructure.libraryFee}</span></div>
+                  <div className="bg-gray-50 rounded p-2 flex justify-between"><span className="text-gray-500">Lab</span><span className="font-medium">₹{acc.feeStructure.labFee}</span></div>
+                  <div className="bg-gray-50 rounded p-2 flex justify-between"><span className="text-gray-500">Sports</span><span className="font-medium">₹{acc.feeStructure.sportsFee}</span></div>
+                  {acc.feeStructure.hostelFee > 0 && <div className="bg-gray-50 rounded p-2 flex justify-between"><span className="text-gray-500">Hostel</span><span className="font-medium">₹{acc.feeStructure.hostelFee}</span></div>}
+                  {acc.feeStructure.transportFee > 0 && <div className="bg-gray-50 rounded p-2 flex justify-between"><span className="text-gray-500">Transport</span><span className="font-medium">₹{acc.feeStructure.transportFee}</span></div>}
+                  {acc.feeStructure.otherFees > 0 && <div className="bg-gray-50 rounded p-2 flex justify-between"><span className="text-gray-500">Other</span><span className="font-medium">₹{acc.feeStructure.otherFees}</span></div>}
+                </div>
+              </div>
+            )}
+
+            {acc.payments && acc.payments.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">Payment History</h3>
+                <div className="card p-0 overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead><tr>
+                      <th className="table-header">Date</th>
+                      <th className="table-header">Receipt</th>
+                      <th className="table-header">Amount</th>
+                      <th className="table-header">Method</th>
+                      <th className="table-header">Status</th>
+                    </tr></thead>
+                    <tbody>
+                      {acc.payments.map((p: any) => (
+                        <tr key={p.id} className="hover:bg-gray-50">
+                          <td className="table-cell">{new Date(p.paymentDate).toLocaleDateString()}</td>
+                          <td className="table-cell font-mono text-xs">{p.receiptNo}</td>
+                          <td className="table-cell font-medium">₹{p.amount}</td>
+                          <td className="table-cell"><span className={`badge ${statusColors[p.method] || "badge-default"}`}>{p.method}</span></td>
+                          <td className="table-cell"><span className={`badge ${statusColors[p.status] || "badge-default"}`}>{p.status}</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
